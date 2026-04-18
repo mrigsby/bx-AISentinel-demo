@@ -54,11 +54,15 @@ curl -L -o lib/tokenizers-0.36.0.jar \
                 </p>
             </li>
             <li class="mb-3">
-                <strong>Download the model</strong>. The bundled task handles this:
+                <strong>Download the model</strong> directly from HuggingFace into the module's default <code>assets/</code> directory:
                 <pre class="bg-body-secondary rounded p-2 mb-0 mt-2"><code>cd modules_app/bx-AISentinel-ONNX/
-box run-script download-model modelName=gliner-pii-v1 acceptUnverified=true</code></pre>
+mkdir -p assets
+curl -L -o assets/model.onnx \
+  https://huggingface.co/urchade/gliner_multi_pii-v1/resolve/main/onnx/model.onnx
+curl -L -o assets/tokenizer.json \
+  https://huggingface.co/urchade/gliner_multi_pii-v1/resolve/main/tokenizer.json</code></pre>
                 <p class="small text-muted mt-1 mb-0">
-                    <code>acceptUnverified=true</code> is needed today because the maintainer hasn't pinned the SHA-256 yet. For production, prefer <code>manual</code> mode: download the files yourself from <a href="https://huggingface.co/urchade/gliner_multi_pii-v1" target="_blank" rel="noopener">HuggingFace</a> and place them at the configured <code>modelPath</code>.
+                    Alternatively, set <code>assetMode: "auto-download"</code> + <code>acceptUnverified: true</code> in module settings (Step 4) and the detector will fetch the files on its first <code>scan()</code> call — trades explicit control for zero manual work.
                 </p>
             </li>
             <li class="mb-3">
