@@ -42,12 +42,15 @@
                 </p>
             </li>
             <li class="mb-3">
-                <strong>Place the ONNX Runtime + tokenizer JARs</strong> into the module's <code>lib/</code> directory.
+                <strong>Place the ONNX Runtime + tokenizer JARs</strong> into the module's <code>lib/</code> directory via direct download from Maven Central:
                 <pre class="bg-body-secondary rounded p-2 mb-0 mt-2"><code>cd modules_app/bx-AISentinel-ONNX/
-box install jar:com.microsoft.onnxruntime:onnxruntime:1.24.0 --installPath=lib
-box install jar:ai.djl.huggingface:tokenizers:0.33.0         --installPath=lib</code></pre>
+mkdir -p lib
+curl -L -o lib/onnxruntime-1.22.0.jar \
+  https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime/1.22.0/onnxruntime-1.22.0.jar
+curl -L -o lib/tokenizers-0.36.0.jar \
+  https://repo1.maven.org/maven2/ai/djl/huggingface/tokenizers/0.36.0/tokenizers-0.36.0.jar</code></pre>
                 <p class="small text-muted mt-1 mb-0">
-                    Single monolithic JARs that bundle native libraries for every platform. Together ~40 MB.
+                    Single monolithic JARs that bundle native libraries for every platform. Together ~40 MB. Swap in newer versions from <a href="https://central.sonatype.com/artifact/com.microsoft.onnxruntime/onnxruntime" target="_blank" rel="noopener">Maven Central</a> if available.
                 </p>
             </li>
             <li class="mb-3">
