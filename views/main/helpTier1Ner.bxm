@@ -58,9 +58,9 @@ curl -L -o lib/tokenizers-0.36.0.jar \
                 <pre class="bg-body-secondary rounded p-2 mb-0 mt-2"><code>cd modules_app/bx-AISentinel-ONNX/
 mkdir -p assets
 curl -L -o assets/model.onnx \
-  https://huggingface.co/urchade/gliner_multi_pii-v1/resolve/main/onnx/model.onnx
+  https://huggingface.co/onnx-community/gliner_multi_pii-v1/resolve/main/onnx/model.onnx
 curl -L -o assets/tokenizer.json \
-  https://huggingface.co/urchade/gliner_multi_pii-v1/resolve/main/tokenizer.json</code></pre>
+  https://huggingface.co/onnx-community/gliner_multi_pii-v1/resolve/main/tokenizer.json</code></pre>
                 <p class="small text-muted mt-1 mb-0">
                     Alternatively, set <code>assetMode: "auto-download"</code> + <code>acceptUnverified: true</code> in module settings (Step 4) and the detector will fetch the files on its first <code>scan()</code> call — trades explicit control for zero manual work.
                 </p>
