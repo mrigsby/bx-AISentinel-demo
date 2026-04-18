@@ -59,6 +59,16 @@
                 </a>
             </li>
 
+            <li class="bx-menu__item bx-menu__item--leaf #( prc.activeNav ?: '' ) == 'help-tier1-ner' ? 'is-active' : ''#" data-bx-menu-item="help-tier1-ner">
+                <a class="bx-menu__link" href="/help/tier1-ner"
+                   title="Install and configure the optional bx-AISentinel-ONNX module">
+                    <span class="bx-menu__icon" aria-hidden="true">
+                        <i data-lucide="brain-circuit"></i>
+                    </span>
+                    <span class="bx-menu__label">Tier 1 NER setup</span>
+                </a>
+            </li>
+
             <li class="bx-menu__section">
                 <span class="bx-menu__section-label">Resources</span>
             </li>

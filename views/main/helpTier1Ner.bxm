@@ -1,0 +1,153 @@
+<bx:output>
+
+<section class="mb-4">
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="fs-1" aria-hidden="true">🧠</div>
+        <div>
+            <h1 class="h3 mb-1">Tier 1 NER setup</h1>
+            <p class="text-muted mb-0 small">
+                Optional — adds free-form PII detection on top of the sentinel's built-in regex / entropy / registry tiers.
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">What this adds</h2>
+        <p class="mb-3">
+            The sentinel out of the box catches <strong>formatted secrets</strong> — AWS keys, GitHub tokens, SSNs, emails, credit cards. What it doesn't catch by default:
+        </p>
+        <ul class="mb-3">
+            <li>Free-form <strong>names</strong> ("Alice Martinez")</li>
+            <li><strong>Street addresses</strong> ("742 Evergreen Terrace")</li>
+            <li><strong>Dates of birth</strong> in prose ("born March 14, 1982")</li>
+            <li><strong>Medical record numbers</strong>, institutional IDs, and other context-dependent PII that looks like ordinary text</li>
+        </ul>
+        <p class="mb-0 small text-muted">
+            Installing <a href="https://github.com/mrigsby/bx-AISentinel-ONNX" target="_blank" rel="noopener"><code>bx-AISentinel-ONNX</code></a> plugs an ONNX Runtime + GLiNER / Piiranha model into the sentinel's external-detector slot. The detector handles the contextual category and works alongside the existing tiers — no replacement, just additive coverage.
+        </p>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Install steps</h2>
+        <ol class="mb-0">
+            <li class="mb-3">
+                <strong>Install the module.</strong>
+                <pre class="bg-body-secondary rounded p-2 mb-0 mt-2"><code>box install git+https://github.com/mrigsby/bx-AISentinel-ONNX.git</code></pre>
+                <p class="small text-muted mt-1 mb-0">
+                    CommandBox installs into <code>modules_app/bx-AISentinel-ONNX/</code>. It pulls <code>cbjavaloader</code> as a dependency automatically.
+                </p>
+            </li>
+            <li class="mb-3">
+                <strong>Place the ONNX Runtime + tokenizer JARs</strong> into the module's <code>lib/</code> directory.
+                <pre class="bg-body-secondary rounded p-2 mb-0 mt-2"><code>cd modules_app/bx-AISentinel-ONNX/
+box install jar:com.microsoft.onnxruntime:onnxruntime:1.24.0 --installPath=lib
+box install jar:ai.djl.huggingface:tokenizers:0.33.0         --installPath=lib</code></pre>
+                <p class="small text-muted mt-1 mb-0">
+                    Single monolithic JARs that bundle native libraries for every platform. Together ~40 MB.
+                </p>
+            </li>
+            <li class="mb-3">
+                <strong>Download the model</strong>. The bundled task handles this:
+                <pre class="bg-body-secondary rounded p-2 mb-0 mt-2"><code>cd modules_app/bx-AISentinel-ONNX/
+box run-script download-model modelName=gliner-pii-v1 acceptUnverified=true</code></pre>
+                <p class="small text-muted mt-1 mb-0">
+                    <code>acceptUnverified=true</code> is needed today because the maintainer hasn't pinned the SHA-256 yet. For production, prefer <code>manual</code> mode: download the files yourself from <a href="https://huggingface.co/urchade/gliner_multi_pii-v1" target="_blank" rel="noopener">HuggingFace</a> and place them at the configured <code>modelPath</code>.
+                </p>
+            </li>
+            <li class="mb-3">
+                <strong>Wire the detector</strong> into the sentinel via <code>boxlang.json</code>:
+                <pre class="bg-body-secondary rounded p-2 mb-0 mt-2"><code>{
+    "modules": {
+        "bx-aisentinel": {
+            "externalDetectors": [
+                "OnnxNerDetector@bx-AISentinel-ONNX"
+            ]
+        },
+        "bx-aisentinel-onnx": {
+            "modelName" : "gliner-pii-v1",
+            "modelPath" : "~/.bx-aisentinel/models/gliner-pii-v1/",
+            "assetMode" : "manual"
+        }
+    }
+}</code></pre>
+                <p class="small text-muted mt-1 mb-0">
+                    Point <code>modelPath</code> at a host-level directory so the weights survive <code>box install</code> reinstalls.
+                </p>
+            </li>
+            <li class="mb-0">
+                <strong>Restart the server</strong> and open <a href="/chat">/chat</a>. Send any prompt with free-form PII (a "Free-form PII scenario" seeded prompt is included below the chat input).
+            </li>
+        </ol>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Verify it's working</h2>
+        <ol class="mb-0">
+            <li class="mb-2">
+                Send a chat message containing a free-form name or address. Something like:
+                <blockquote class="border-start border-3 ps-3 mt-2 mb-2 small">
+                    <em>Alice Martinez, born 1982-03-14, lives at 742 Evergreen Terrace. Look up her account.</em>
+                </blockquote>
+            </li>
+            <li class="mb-2">
+                Open the <a href="/dashboard">Dashboard</a>. A new <code>pii-ner</code> category card will appear in the breakdown once the detector fires its first hit.
+            </li>
+            <li class="mb-0">
+                Open the <strong>Inspector</strong> panel in the chat. The outbound payload will show <code>⟦SECRET:PII_PERSON_NAME:…⟧</code>-style tokens where the plaintext was.
+            </li>
+        </ol>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Troubleshooting</h2>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:40%;">Symptom</th>
+                        <th>Fix</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Chat redacts AWS keys and emails but not names / addresses.</td>
+                        <td>Tier 1 detector isn't installed or didn't load. Check the chat page's "Tier 1 NER" status indicator and the <code>bx-aisentinel-onnx</code> log file.</td>
+                    </tr>
+                    <tr>
+                        <td><code>UnverifiedModel</code> error during download.</td>
+                        <td>Registry entry doesn't have a pinned SHA-256. Pass <code>acceptUnverified=true</code> after you've decided you trust the source, or switch to <code>manual</code> mode.</td>
+                    </tr>
+                    <tr>
+                        <td><code>scan()</code> returns empty.</td>
+                        <td>Call <code>detector.validateAssets()</code> from a BoxLang console. Look for <code>missingFiles</code> or <code>checksumIssues</code>.</td>
+                    </tr>
+                    <tr>
+                        <td>Dashboard never shows a <code>pii-ner</code> category card.</td>
+                        <td>The detector hasn't fired yet — send a prompt with free-form PII (name / address / DOB), not just formatted secrets.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">References</h2>
+        <ul class="mb-0">
+            <li><a href="https://github.com/mrigsby/bx-AISentinel-ONNX##readme" target="_blank" rel="noopener">bx-AISentinel-ONNX README</a> — full install + settings reference, including the three <code>assetMode</code> options and the <code>download-model</code> task.</li>
+            <li><a href="https://github.com/mrigsby/bx-AISentinel/blob/main/models/detectors/CONTRACT.md" target="_blank" rel="noopener">IDetector@1.0.0 contract</a> — the plugin interface the ONNX module implements.</li>
+            <li><a href="https://huggingface.co/urchade/gliner_multi_pii-v1" target="_blank" rel="noopener">GLiNER multi-PII v1 model card</a> — the default model.</li>
+        </ul>
+    </div>
+</section>
+
+</bx:output>

@@ -87,9 +87,24 @@ The demo ships with a small TestBox 7 suite under [`tests/`](tests/) covering th
 
 The middleware itself has its own standalone harness in the module repo — see [bx-AISentinel/tests](https://github.com/mrigsby/bx-AISentinel/tree/main/tests) for the full detector / core round-trip coverage.
 
+## Optional: Tier 1 NER
+
+The demo ships with the sentinel's Tier 0 detectors (regex / entropy / registry). Those catch formatted secrets — AWS keys, GitHub tokens, SSNs, emails. They do NOT catch free-form PII: names, addresses, dates of birth in prose, medical record numbers, institutional IDs.
+
+The companion [`bx-AISentinel-ONNX`](https://github.com/mrigsby/bx-AISentinel-ONNX) module plugs an ONNX Runtime + NER model into the sentinel's external-detector slot and closes that gap. It is NOT installed by default — first-run install stays zero-config. Enable it whenever you need contextual PII coverage.
+
+Full step-by-step (install the module, place the ONNX JARs, download the model, wire `boxlang.json`): open the demo, click **Developer → Tier 1 NER setup** in the sidebar, or go straight to [/help/tier1-ner](http://localhost:8888/help/tier1-ner) once the server is running.
+
+Visible signals when Tier 1 is active:
+
+- Chat page header shows `Tier 1 NER: active`.
+- Dashboard shows a "Tier 1 NER is active" callout counting free-form PII entities redacted this session.
+- Session metrics include a `pii-ner` category.
+
 ## What to read next
 
 - [bx-AISentinel README](https://github.com/mrigsby/bx-AISentinel#readme) — module overview and API
+- [bx-AISentinel-ONNX README](https://github.com/mrigsby/bx-AISentinel-ONNX#readme) — Tier 1 NER sibling module
 - [bx-AISentinel token protocol](https://github.com/mrigsby/bx-AISentinel/blob/main/includes/token-protocol.md) — the contract the middleware teaches the LLM when "Explain tokens to LLM" is on
 - [OpenRouter models](https://openrouter.ai/models) — swap in a different `OPENROUTER_MODEL` in `.env`
 

@@ -47,4 +47,16 @@ class {
         event.setView( "main/dashboard" );
     }
 
+    /**
+     * GET /help/tier1-ner — static help page documenting the optional
+     * bx-AISentinel-ONNX module (Tier 1 NER PII detection). The demo ships
+     * WITHOUT the Tier 1 module so new users have a zero-config first-run
+     * experience; this page is how they discover and configure it.
+     */
+    function helpTier1Ner( event, rc, prc ) {
+        prc.pageTitle = "Tier 1 NER Setup";
+        prc.activeNav = "help-tier1-ner";
+        event.setView( "main/helpTier1Ner" );
+    }
+
 }

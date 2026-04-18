@@ -5,6 +5,25 @@
 --->
 <div wire:poll.3s="refresh">
 
+    <!--- Tier 1 NER callout — visible only after the optional
+          bx-AISentinel-ONNX detector has contributed at least one hit
+          in this session. Silent otherwise so the default demo experience
+          isn't cluttered with inactive features. --->
+    <bx:if ( ( data.summary.categories[ "pii-ner" ] ?: 0 ) GT 0 )>
+        <div class="alert alert-info d-flex align-items-center gap-2 mb-4" role="status">
+            <i data-lucide="brain-circuit" style="width:1rem;height:1rem;flex-shrink:0;" aria-hidden="true"></i>
+            <div>
+                <strong>Tier 1 NER is active.</strong>
+                <span class="small ms-1">
+                    <bx:output>#data.summary.categories[ "pii-ner" ]#</bx:output> free-form PII
+                    <bx:if data.summary.categories[ "pii-ner" ] EQ 1>entity<bx:else>entities</bx:if>
+                    redacted this session via
+                    <a href="https://github.com/mrigsby/bx-AISentinel-ONNX" target="_blank" rel="noopener">bx-AISentinel-ONNX</a>.
+                </span>
+            </div>
+        </div>
+    </bx:if>
+
     <div class="row g-3 mb-4">
 
         <div class="col-sm-6 col-xl-3">

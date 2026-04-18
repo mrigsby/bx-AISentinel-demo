@@ -9,6 +9,7 @@ class extends="coldbox.system.web.routing.Router" {
         route( "/" ).to( "main.index" );
         route( "/chat" ).to( "main.chat" );
         route( "/dashboard" ).to( "main.dashboard" );
+        route( "/help/tier1-ner" ).to( "main.helpTier1Ner" );
 
         // Leave the default event route enabled for CBWire / debug.
         route( ":handler/:action?" ).end();

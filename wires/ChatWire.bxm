@@ -57,6 +57,30 @@
                     </div>
                 </div>
 
+                <!--- Tier 1 NER status — subtle indicator linking to the help page.
+                      "not-installed" is the default demo state; "loaded" / "degraded"
+                      only appear when the user has wired in bx-AISentinel-ONNX. --->
+                <div class="d-flex justify-content-end mb-2 small">
+                    <bx:if data.tier1Status.state EQ "loaded">
+                        <a href="/help/tier1-ner" class="text-success text-decoration-none d-flex align-items-center gap-1">
+                            <i data-lucide="brain-circuit" style="width:.875rem;height:.875rem;"></i>
+                            Tier 1 NER: active
+                        </a>
+                    <bx:elseif data.tier1Status.state EQ "degraded">
+                        <a href="/help/tier1-ner" class="text-warning text-decoration-none d-flex align-items-center gap-1"
+                           title="#encodeForHtmlAttribute( data.tier1Status.reason )#">
+                            <i data-lucide="brain-circuit" style="width:.875rem;height:.875rem;"></i>
+                            Tier 1 NER: degraded — see help
+                        </a>
+                    <bx:else>
+                        <a href="/help/tier1-ner" class="text-muted text-decoration-none d-flex align-items-center gap-1"
+                           title="Install bx-AISentinel-ONNX to catch free-form PII (names, addresses, DOBs). Click for setup instructions.">
+                            <i data-lucide="brain-circuit" style="width:.875rem;height:.875rem;"></i>
+                            Tier 1 NER: not installed
+                        </a>
+                    </bx:if>
+                </div>
+
                 #view( view="partials/_seeded-prompts" )#
 
                 <div class="mb-3" style="min-height:14rem;max-height:32rem;overflow-y:auto;" id="bx-sentinel-transcript">

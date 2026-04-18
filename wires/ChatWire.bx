@@ -35,7 +35,12 @@ class extends="cbwire.models.Component" {
         "lastRawResponse"    : "",           // what the LLM returned (tokenized)
         "lastRestoredReply"  : "",           // what the user sees (plaintext)
         "isThinking"         : false,
-        "errorMessage"       : ""
+        "errorMessage"       : "",
+        // Status of the optional bx-AISentinel-ONNX Tier 1 detector.
+        // Computed once in onMount from the middleware's load report so the
+        // chat UI can surface a subtle "installed / not installed" indicator.
+        // state ∈ { "loaded", "degraded", "not-installed", "unknown" }
+        "tier1Status"        : { "state": "not-installed", "name": "", "reason": "" }
     };
 
     computed = {
@@ -51,10 +56,21 @@ class extends="cbwire.models.Component" {
     // ─── Lifecycle ───────────────────────────────────────────────────────
 
     function onMount() {
-        // Nothing to do here anymore — the agent is rebuilt per-send in send()
-        // because CBWire rehydrates `variables` across AJAX requests and
-        // anything assigned to variables.xxx in onMount wouldn't survive.
-        // Conversation continuity lives in aiMemory, keyed by the wire ID.
+        // The agent is rebuilt per-send in send() because CBWire rehydrates
+        // `variables` across AJAX requests and anything assigned to
+        // variables.xxx in onMount wouldn't survive. Conversation continuity
+        // lives in aiMemory, keyed by the wire ID.
+        //
+        // BUT — wire `data` DOES persist. Compute the Tier 1 status once here
+        // so the chat UI can show a subtle "installed / not installed"
+        // indicator without calling the middleware on every render.
+        try {
+            var probe  = new bxAiSentinel.models.AiSentinelMiddleware();
+            var report = probe.getLoadReport();
+            data.tier1Status = _computeTier1Status( report );
+        } catch ( any e ) {
+            data.tier1Status = { "state": "unknown", "name": "", "reason": e.message ?: "init failed" };
+        }
         return this;
     }
 
@@ -166,6 +182,28 @@ class extends="cbwire.models.Component" {
     }
 
     // ─── Internals ───────────────────────────────────────────────────────
+
+    /**
+     * Map the sentinel's load-report detector list into a compact status
+     * struct for the chat UI. We look for any detector whose name matches
+     * the ONNX sibling module's WireBox ID (case-insensitive).
+     *
+     * state ∈ { "loaded", "degraded", "not-installed" }
+     */
+    private struct function _computeTier1Status( required struct report ) {
+        var detectors = arguments.report.detectors ?: [];
+        for ( var d in detectors ) {
+            if ( findNoCase( "bx-AISentinel-ONNX", d.name ) > 0
+                 || findNoCase( "OnnxNerDetector", d.name ) > 0 ) {
+                return {
+                    "state"  : d.status ?: "unknown",
+                    "name"   : d.name   ?: "",
+                    "reason" : d.reason ?: ""
+                };
+            }
+        }
+        return { "state": "not-installed", "name": "", "reason": "" };
+    }
 
     private string function _sessionId() {
         try {

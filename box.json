@@ -1,7 +1,7 @@
 {
     "name":"bx-AISentinel Demo",
     "slug":"bx-aisentinel-demo",
-    "version":"0.1.0",
+    "version":"0.1.1",
     "author":"Ortus Solutions, Corp",
     "description":"ColdBox + CBWire demo of bx-AISentinel middleware against OpenRouter.",
     "type":"projects",
