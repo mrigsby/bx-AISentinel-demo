@@ -1,0 +1,289 @@
+<bx:output>
+<div class="row g-3">
+
+    <!--- Left: conversation --->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 d-flex align-items-center gap-2">
+                        <i data-lucide="message-square-text" style="width:1rem;height:1rem;"></i>
+                        Conversation
+                    </h6>
+
+                    <div class="d-flex align-items-center gap-2">
+
+                        <div class="bx-sentinel-controls #data.sentinelEnabled ? 'is-armed' : 'is-disarmed'#">
+
+                            <label class="bx-sentinel-control #data.sentinelEnabled ? 'is-on is-primary' : 'is-off'#"
+                                   data-bx-tip="Master switch. When OFF, every middleware hook short-circuits and the LLM receives raw prompts with no redaction.">
+                                <i data-lucide="shield-check" aria-hidden="true"></i>
+                                <span class="bx-sentinel-control__label">Sentinel</span>
+                                <span class="form-check form-switch mb-0">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           role="switch"
+                                           id="bx-sentinel-toggle"
+                                           wire:click="onSentinelToggle"
+                                           #data.sentinelEnabled ? "checked" : ""#>
+                                </span>
+                            </label>
+
+                            <label class="bx-sentinel-control #data.explainTokensToLLM ? 'is-on' : 'is-off'# #NOT data.sentinelEnabled ? 'is-disabled' : ''#"
+                                   data-bx-tip="When ON, the middleware prepends a system message teaching the LLM to preserve ⟦SECRET:...⟧ tokens verbatim. Only fires when the outbound payload actually contains tokens — no overhead on plain chat.">
+                                <i data-lucide="graduation-cap" aria-hidden="true"></i>
+                                <span class="bx-sentinel-control__label">Coaching</span>
+                                <span class="form-check form-switch mb-0">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           role="switch"
+                                           id="bx-coaching-toggle"
+                                           wire:click="onExplainTokensToggle"
+                                           #data.explainTokensToLLM ? "checked" : ""#
+                                           #NOT data.sentinelEnabled ? "disabled" : ""#>
+                                </span>
+                            </label>
+
+                        </div>
+
+                        <button type="button"
+                                class="btn btn-sm btn-outline-secondary"
+                                wire:click="clearConversation"
+                                title="Clear the conversation transcript.">
+                            <i data-lucide="eraser" style="width:.875rem;height:.875rem;"></i>
+                            Clear
+                        </button>
+                    </div>
+                </div>
+
+                #view( view="partials/_seeded-prompts" )#
+
+                <div class="mb-3" style="min-height:14rem;max-height:32rem;overflow-y:auto;" id="bx-sentinel-transcript">
+                    <bx:if data.messages.len() EQ 0>
+                        <p class="text-muted small text-center my-5" wire:loading.remove wire:target="send">
+                            No messages yet. Pick a seeded prompt above or type your own.
+                        </p>
+                    <bx:else>
+                        <bx:loop array="#data.messages#" item="msg">
+                            <div class="d-flex mb-2">
+                                <div class="bx-sentinel-msg #msg.role == 'user' ? 'bx-sentinel-msg--user' : 'bx-sentinel-msg--assistant'#">
+                                    <div class="small text-muted mb-1">#msg.role#</div>
+                                    <bx:if msg.role EQ "assistant">
+                                        <div class="bx-sentinel-markdown">#markdown( msg.content ?: "" )#</div>
+                                    <bx:else>
+                                        <div style="white-space:pre-wrap;">#encodeForHtml( msg.content )#</div>
+                                    </bx:if>
+                                    <bx:if msg.role EQ "assistant" AND structKeyExists( msg, "metrics" )>
+                                        #view( view="partials/_timing-badge", args={ metrics: msg.metrics } )#
+                                    </bx:if>
+                                </div>
+                            </div>
+                        </bx:loop>
+                    </bx:if>
+
+                    <!--- Thinking indicator — client-side only; appears instantly on send dispatch.
+                          NOTE: do NOT put `d-flex` on this wrapper. Bootstrap's `d-flex` uses `!important`
+                          which overrides `wire:loading`'s default hide, leaving the bubble always visible.
+                          `wire:loading.flex` sets display:flex at runtime when a send is in flight. --->
+                    <div class="mb-2" wire:loading.flex wire:target="send" style="display:none;" data-bx-thinking>
+                        <div class="bx-sentinel-msg bx-sentinel-msg--assistant">
+                            <div class="small text-muted mb-1">assistant</div>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></div>
+                                <span class="bx-sentinel-thinking-dots">Thinking</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!--- Transcript auto-scroll via Livewire lifecycle hooks.
+                      - On commit dispatch → Thinking bubble is visible → pin to bottom.
+                      - On commit's `succeed` callback (whole morph complete, DOM updated)
+                        → find the last assistant reply in the DOM and scroll its top to
+                        the top of the transcript. Fires unconditionally on every
+                        successful response, regardless of where the user had scrolled. --->
+                <script>
+                    ( function () {
+                        if ( window.bxSentinelChatScrollBound ) return;
+                        window.bxSentinelChatScrollBound = true;
+
+                        function transcript() {
+                            return document.getElementById( "bx-sentinel-transcript" );
+                        }
+                        function pinBottom() {
+                            var t = transcript(); if ( t ) t.scrollTop = t.scrollHeight;
+                        }
+                        function lastAssistantReply() {
+                            var t = transcript(); if ( ! t ) return null;
+                            var msgs = t.querySelectorAll( ".bx-sentinel-msg--assistant" );
+                            for ( var i = msgs.length - 1; i >= 0; i-- ) {
+                                // Skip the persistent Thinking placeholder bubble.
+                                if ( msgs[ i ].closest( "[wire\\:loading\\.flex]" ) ) continue;
+                                return msgs[ i ];
+                            }
+                            return null;
+                        }
+                        function scrollReplyToTop() {
+                            var t   = transcript();           if ( ! t   ) return;
+                            var msg = lastAssistantReply();   if ( ! msg ) return;
+                            // Two frames so markdown body + timing badge have laid out
+                            // before we measure the new message's top.
+                            requestAnimationFrame( function () {
+                                requestAnimationFrame( function () {
+                                    var mRect = msg.getBoundingClientRect();
+                                    var tRect = t.getBoundingClientRect();
+                                    t.scrollTop += ( mRect.top - tRect.top );
+                                } );
+                            } );
+                        }
+
+                        document.addEventListener( "livewire:init", function () {
+
+                            // Initial paint — pin to bottom.
+                            pinBottom();
+
+                            // commit → Thinking bubble is now visible. Pin to bottom so the
+                            // user sees their message + the "Thinking…" placeholder land at
+                            // the bottom of the transcript.
+                            Livewire.hook( "commit", function () {
+                                if ( ! transcript() ) return;
+                                requestAnimationFrame( function () {
+                                    requestAnimationFrame( pinBottom );
+                                } );
+                            } );
+
+                            // morphed → full DOM update complete. Scroll the top of the
+                            // latest assistant reply (skipping the Thinking placeholder) to
+                            // the top of the transcript. Fires on every successful response.
+                            Livewire.hook( "morphed", function () {
+                                if ( ! transcript() ) return;
+                                scrollReplyToTop();
+                            } );
+
+                        } );
+                    } )();
+                </script>
+
+                <bx:if len( data.errorMessage )>
+                    <div class="alert alert-danger small">#encodeForHtml( data.errorMessage )#</div>
+                </bx:if>
+
+                <form wire:submit.prevent="send">
+                    <div class="input-group">
+                        <textarea class="form-control bx-sentinel-textarea"
+                                  rows="2"
+                                  data-bx-autogrow
+                                  placeholder="Ask something — paste secrets freely, Sentinel will handle it. (Enter sends · Shift+Enter for a new line)"
+                                  wire:model="draft"
+                                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.requestSubmit();}"
+                                  wire:loading.attr="disabled" wire:target="send"></textarea>
+                        <button type="submit"
+                                class="btn btn-primary"
+                                wire:loading.attr="disabled" wire:target="send"
+                                #NOT len( trim( data.draft ) ) ? "disabled" : ""#>
+                            <span wire:loading.remove wire:target="send">
+                                <i data-lucide="send" style="width:.875rem;height:.875rem;"></i>
+                                Send
+                            </span>
+                            <span wire:loading.flex wire:target="send" class="align-items-center gap-1">
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                Thinking…
+                            </span>
+                        </button>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <!--- Right: inspector --->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 d-flex align-items-center gap-2">
+                        <i data-lucide="scan-text" style="width:1rem;height:1rem;"></i>
+                        Inspector
+                    </h6>
+                    <button type="button" class="btn btn-sm btn-link" wire:click="toggleInspector">
+                        <bx:if data.showInspector>Hide<bx:else>Show</bx:if>
+                    </button>
+                </div>
+
+                <bx:if data.showInspector>
+
+                    <div class="mb-3 bx-sentinel-inspector-panel">
+                        <div class="bx-sentinel-inspector-head">
+                            <span class="small text-muted">1. Your prompt (plaintext — local only)</span>
+                            <button type="button" class="bx-sentinel-copy-btn" data-bx-copy-target="bx-ins-raw-prompt" aria-label="Copy" title="Copy to clipboard">
+                                <i data-lucide="copy" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div id="bx-ins-raw-prompt" class="bx-sentinel-inspector bx-sentinel-inspector--before">#encodeForHtml( len( data.lastRawPrompt ) ? data.lastRawPrompt : "(none)" )#</div>
+                    </div>
+
+                    <div class="mb-3 bx-sentinel-inspector-panel">
+                        <div class="bx-sentinel-inspector-head">
+                            <span class="small text-muted">2. What the LLM saw (tokenized wire payload)</span>
+                            <button type="button" class="bx-sentinel-copy-btn" data-bx-copy-target="bx-ins-tokenized-prompt" aria-label="Copy" title="Copy to clipboard">
+                                <i data-lucide="copy" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div id="bx-ins-tokenized-prompt" class="bx-sentinel-inspector bx-sentinel-inspector--tokenized">#encodeForHtml( len( data.lastTokenizedPrompt ) ? data.lastTokenizedPrompt : "(none)" )#</div>
+                    </div>
+
+                    <div class="mb-3 bx-sentinel-inspector-panel">
+                        <div class="bx-sentinel-inspector-head">
+                            <span class="small text-muted">3. What the LLM returned (raw — may echo tokens)</span>
+                            <button type="button" class="bx-sentinel-copy-btn" data-bx-copy-target="bx-ins-raw-response" aria-label="Copy" title="Copy to clipboard">
+                                <i data-lucide="copy" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div id="bx-ins-raw-response" class="bx-sentinel-inspector bx-sentinel-inspector--tokenized">#encodeForHtml( len( data.lastRawResponse ) ? data.lastRawResponse : "(none)" )#</div>
+                    </div>
+
+                    <div class="mb-3 bx-sentinel-inspector-panel">
+                        <div class="bx-sentinel-inspector-head">
+                            <span class="small text-muted">4. Assistant reply (plaintext restored — what you see)</span>
+                            <button type="button" class="bx-sentinel-copy-btn" data-bx-copy-target="bx-ins-restored-reply" aria-label="Copy" title="Copy to clipboard">
+                                <i data-lucide="copy" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div id="bx-ins-restored-reply" class="bx-sentinel-inspector bx-sentinel-inspector--after">#encodeForHtml( len( data.lastRestoredReply ) ? data.lastRestoredReply : "(none)" )#</div>
+                    </div>
+
+                    <div>
+                        <div class="small text-muted mb-1">Last-run metrics</div>
+                        <bx:if structIsEmpty( data.lastRunMetrics )>
+                            <p class="small text-muted">Send a message to populate.</p>
+                        <bx:else>
+                            #view( view="partials/_timing-badge", args={ metrics: data.lastRunMetrics } )#
+                        </bx:if>
+                    </div>
+
+                <bx:else>
+                    <p class="small text-muted mb-0">
+                        Expand the inspector to see the raw prompt you sent and the (restored) reply you received,
+                        side-by-side with the timing metrics.
+                    </p>
+                </bx:if>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="mb-2">What to try</h6>
+                <ul class="small text-muted mb-0 ps-3">
+                    <li>Click a seeded prompt; send; observe the timing badge.</li>
+                    <li>Toggle Sentinel OFF and send the same prompt — watch the reply echo the plaintext verbatim.</li>
+                    <li>Switch back ON and check the dashboard for session totals.</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+</bx:output>

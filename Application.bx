@@ -1,0 +1,113 @@
+/**
+ * bx-AISentinel Demo — Application bootstrap.
+ *
+ * Loads .env (if present) into JVM system properties, then delegates all
+ * lifecycle methods to ColdBox's Bootstrap (instantiated in onApplicationStart).
+ */
+class {
+
+    this.name                 = "bx-AISentinel-Demo";
+    this.sessionManagement    = true;
+    this.setClientCookies     = true;
+    this.sessionTimeout       = createTimeSpan( 0, 2, 0, 0 );
+    this.applicationTimeout   = createTimeSpan( 1, 0, 0, 0 );
+
+    // cfmappings — demo app paths + local bx-aisentinel module
+    this.mappings[ "/coldbox"      ] = getDirectoryFromPath( getCurrentTemplatePath() ) & "coldbox";
+    this.mappings[ "/app"          ] = getDirectoryFromPath( getCurrentTemplatePath() );
+    this.mappings[ "/modules_app"  ] = getDirectoryFromPath( getCurrentTemplatePath() ) & "modules_app";
+
+    // Local dependency — the bx-AISentinelMiddleware module lives one level up,
+    // linked into modules_app/ for loading by ColdBox.
+    this.mappings[ "/bxAiSentinel" ] = getDirectoryFromPath( getCurrentTemplatePath() ) & "../bx-AISentinelMiddleware";
+
+    // ColdBox bootstrap constants
+    COLDBOX_APP_ROOT_PATH = getDirectoryFromPath( getCurrentTemplatePath() );
+    COLDBOX_APP_MAPPING   = "";
+    COLDBOX_CONFIG_FILE   = "";
+    COLDBOX_APP_KEY       = "";
+
+    function onApplicationStart() {
+        // _loadDotEnv();
+        application.cbBootstrap = new coldbox.system.Bootstrap(
+            COLDBOX_CONFIG_FILE   : COLDBOX_CONFIG_FILE,
+            COLDBOX_APP_ROOT_PATH : COLDBOX_APP_ROOT_PATH,
+            COLDBOX_APP_KEY       : COLDBOX_APP_KEY,
+            COLDBOX_APP_MAPPING   : COLDBOX_APP_MAPPING
+        );
+        application.cbBootstrap.loadColdBox();
+        return true;
+    }
+
+    function onRequestStart( required string targetPage ) {
+        // _loadDotEnv();
+        if ( !structKeyExists( application, "cbBootstrap" ) ) {
+            application.cbBootstrap = new coldbox.system.Bootstrap(
+                COLDBOX_CONFIG_FILE   : COLDBOX_CONFIG_FILE,
+                COLDBOX_APP_ROOT_PATH : COLDBOX_APP_ROOT_PATH,
+                COLDBOX_APP_KEY       : COLDBOX_APP_KEY,
+                COLDBOX_APP_MAPPING   : COLDBOX_APP_MAPPING
+            );
+            application.cbBootstrap.loadColdBox();
+        }
+        application.cbBootstrap.onRequestStart( arguments.targetPage );
+        return true;
+    }
+
+    function onSessionStart() {
+        application.cbBootstrap.onSessionStart();
+    }
+
+    function onSessionEnd( required struct sessionScope, struct appScope = {} ) {
+        application.cbBootstrap.onSessionEnd( argumentCollection: arguments );
+    }
+
+    function onApplicationEnd( struct appScope = {} ) {
+        application.cbBootstrap.onApplicationEnd( argumentCollection: arguments );
+    }
+
+    function onMissingTemplate( required string template ) {
+        return application.cbBootstrap.onMissingTemplate( argumentCollection: arguments );
+    }
+
+    /**
+     * Minimal .env loader — reads `./.env`, pushes KEY=VALUE lines into JVM
+     * system properties so downstream code can read via getSystemSetting().
+     */
+    private function _loadDotEnv() {
+        local.envPath = getDirectoryFromPath( getCurrentTemplatePath() ) & ".env";
+        if ( !fileExists( local.envPath ) ) return;
+
+        local.hashChar = char( 35 );
+        local.dquote   = char( 34 );
+        local.squote   = char( 39 );
+        local.newline  = char( 10 );
+        local.sysProps = createObject( "java", "java.lang.System" );
+
+        local.lines = listToArray( fileRead( local.envPath ), local.newline );
+
+        for ( local.line in local.lines ) {
+            local.line = trim( local.line );
+            if ( !len( local.line ) ) continue;
+            if ( left( local.line, 1 ) == local.hashChar ) continue;
+
+            local.eq = find( "=", local.line );
+            if ( local.eq == 0 ) continue;
+
+            local.key = trim( mid( local.line, 1, local.eq - 1 ) );
+            local.val = trim( mid( local.line, local.eq + 1, len( local.line ) - local.eq ) );
+
+            if ( len( local.val ) >= 2 ) {
+                local.firstCh = left( local.val, 1 );
+                local.lastCh  = right( local.val, 1 );
+                if ( ( local.firstCh == local.dquote && local.lastCh == local.dquote )
+                  || ( local.firstCh == local.squote && local.lastCh == local.squote ) ) {
+                    local.val = mid( local.val, 2, len( local.val ) - 2 );
+                }
+            }
+
+            local.sysProps.setProperty( local.key, local.val );
+        }
+    }
+
+}

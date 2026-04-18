@@ -1,0 +1,51 @@
+/**
+ * MainHandlerSpec — integration coverage for the single public handler.
+ *
+ * Verifies routing + view setup without actually rendering HTML or hitting
+ * OpenRouter. Uses ColdBox's BaseTestCase.execute() to dispatch a handler
+ * action and inspect the event + prc afterward.
+ */
+class extends="coldbox.system.testing.BaseTestCase" {
+
+    this.loadColdbox = true;
+
+    function beforeAll() {
+        super.beforeAll();
+    }
+
+    function run() {
+
+        describe( "Main handler", () => {
+
+            beforeEach( ( currentSpec ) => {
+                setup();
+            } );
+
+            it( "GET / relocates to /dashboard", () => {
+                var event  = execute( event: "main.index", renderResults: false );
+                var target = event.getValue( "relocate_URI",   "" )
+                           & " " & event.getValue( "relocate_event", "" );
+                expect( target ).toInclude( "dashboard" );
+            } );
+
+            it( "GET /chat renders the chat view with correct prc", () => {
+                var event = execute( event: "main.chat", renderResults: false );
+                expect( event.getCurrentView() ).toBe( "main/chat" );
+                var prc = event.getPrivateCollection();
+                expect( prc ).toHaveKey( "pageTitle" );
+                expect( prc.activeNav ).toBe( "chat" );
+            } );
+
+            it( "GET /dashboard renders the dashboard view with correct prc", () => {
+                var event = execute( event: "main.dashboard", renderResults: false );
+                expect( event.getCurrentView() ).toBe( "main/dashboard" );
+                var prc = event.getPrivateCollection();
+                expect( prc.pageTitle ).toBe( "Sentinel Dashboard" );
+                expect( prc.activeNav ).toBe( "dashboard" );
+            } );
+
+        } );
+
+    }
+
+}

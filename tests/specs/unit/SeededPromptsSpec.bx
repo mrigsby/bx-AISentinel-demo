@@ -1,0 +1,68 @@
+/**
+ * SeededPromptsSpec — unit coverage for the canonical demo-prompt catalog.
+ * ChatWire's onPromptSeed relies on `getByIndex( numeric )` being safe for
+ * out-of-range indices.
+ */
+class extends="testbox.system.BaseSpec" {
+
+    function run() {
+
+        describe( "SeededPrompts", () => {
+
+            it( "ships with a non-empty catalog", () => {
+                expect( arrayLen( _make().getAll() ) ).toBeGT( 0 );
+            } );
+
+            it( "every entry has a label and a body, both non-empty", () => {
+                var sp = _make();
+                for ( var p in sp.getAll() ) {
+                    expect( p ).toHaveKey( "label" );
+                    expect( p ).toHaveKey( "body"  );
+                    expect( len( p.label ) ).toBeGT( 0 );
+                    expect( len( p.body  ) ).toBeGT( 0 );
+                }
+            } );
+
+            it( "getByIndex( 1 ) returns the first prompt", () => {
+                var sp    = _make();
+                var first = sp.getByIndex( 1 );
+                expect( first.label ).toBe( sp.getAll()[ 1 ].label );
+                expect( first.body  ).toBe( sp.getAll()[ 1 ].body  );
+            } );
+
+            it( "getByIndex( size ) returns the last prompt", () => {
+                var sp   = _make();
+                var size = arrayLen( sp.getAll() );
+                expect( sp.getByIndex( size ).label ).toBe( sp.getAll()[ size ].label );
+            } );
+
+            it( "getByIndex( 0 ) returns an empty struct (lower bound)", () => {
+                var p = _make().getByIndex( 0 );
+                expect( p.label ).toBe( "" );
+                expect( p.body  ).toBe( "" );
+            } );
+
+            it( "getByIndex( size + 1 ) returns an empty struct (upper bound)", () => {
+                var sp   = _make();
+                var size = arrayLen( sp.getAll() );
+                expect( sp.getByIndex( size + 1 ).label ).toBe( "" );
+            } );
+
+            it( "getByIndex( 999 ) is safe", () => {
+                expect( _make().getByIndex( 999 ).label ).toBe( "" );
+            } );
+
+            it( "includes the multi-secret deployment .env prompt", () => {
+                var labels = _make().getAll().map( p => p.label );
+                expect( labels.toList( "|" ) ).toInclude( "Audit deployment .env" );
+            } );
+
+        } );
+
+    }
+
+    private any function _make() {
+        return new models.SeededPrompts();
+    }
+
+}

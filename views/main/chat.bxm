@@ -1,0 +1,3 @@
+<bx:output>
+#wire( "ChatWire" )#
+</bx:output>

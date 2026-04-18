@@ -1,0 +1,28 @@
+{
+    "name":"bx-AISentinel Demo",
+    "slug":"bx-aisentinel-demo",
+    "version":"0.1.0",
+    "author":"Ortus Solutions, Corp",
+    "description":"ColdBox + CBWire demo of bx-AISentinel middleware against OpenRouter.",
+    "type":"projects",
+    "private":true,
+    "dependencies":{
+        "coldbox":"^8.0.0",
+        "cbwire":"^5.0.0",
+        "bx-aisentinel":"git+https://github.com/mrigsby/bx-AISentinel.git"
+    },
+    "devDependencies":{
+        "testbox":"^7.0.0"
+    },
+    "installPaths":{
+        "coldbox":"coldbox/",
+        "cbwire":"modules/cbwire/",
+        "testbox":"testbox/",
+        "bx-aisentinel":"modules_app/bx-aisentinel/"
+    },
+    "scripts":{
+        "start":"server start",
+        "stop":"server stop",
+        "test":"testbox run"
+    }
+}

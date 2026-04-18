@@ -1,0 +1,79 @@
+<bx:output>
+<bx:script>
+    param name="args.metrics" default=structNew();
+    m = args.metrics;
+
+    outboundMs    = m.outboundMs    ?: 0;
+    inboundMs     = m.inboundMs     ?: 0;
+    toolRedactMs  = m.toolRedactMs  ?: 0;
+    toolRestoreMs = m.toolRestoreMs ?: 0;
+    llmRoundtrip  = m.llmRoundtripMs?: 0;
+    tokensMinted  = m.tokensMinted  ?: 0;
+    labels        = m.labels        ?: {};
+    categories    = m.categories    ?: {};
+
+    sentinelTotal = outboundMs + inboundMs + toolRedactMs + toolRestoreMs;
+
+    if      ( sentinelTotal < 10 ) { colorClass = "bx-sentinel-badge--success"; }
+    else if ( sentinelTotal < 50 ) { colorClass = "bx-sentinel-badge--warning"; }
+    else                            { colorClass = "bx-sentinel-badge--danger"; }
+
+    overheadPct = llmRoundtrip > 0 ? ( sentinelTotal / llmRoundtrip ) * 100 : 0;
+
+    // Build a display string of token labels with counts. Example outputs:
+    //   "AWS_ACCESS_KEY, PII_EMAIL"
+    //   "PII_EMAIL ×2, GITHUB_PAT"
+    labelSummary = "";
+    labelKeys    = listToArray( structKeyList( labels ) ).sort( "text" );
+    labelParts   = [];
+    for ( labelKey in labelKeys ) {
+        count = labels[ labelKey ];
+        labelParts.append( count > 1 ? ( labelKey & " ×" & count ) : labelKey );
+    }
+    labelSummary = labelParts.toList( ", " );
+</bx:script>
+
+<div class="bx-sentinel-metrics-footer">
+    <div class="bx-sentinel-metrics-footer__label">
+        <i data-lucide="shield-check" aria-hidden="true"></i>
+        <span>Sentinel metrics</span>
+    </div>
+    <div class="bx-sentinel-metrics-footer__badges">
+
+        <span class="bx-sentinel-badge #colorClass#" title="Total bx-AISentinel overhead for this reply">
+            Sentinel #numberFormat( sentinelTotal, "0" )# ms
+        </span>
+
+        <span class="bx-sentinel-badge" title="Redact messages before LLM call">
+            ↑ Out #numberFormat( outboundMs, "0" )# ms
+        </span>
+
+        <span class="bx-sentinel-badge" title="Restore tokens in LLM response">
+            ↓ In #numberFormat( inboundMs, "0" )# ms
+        </span>
+
+        <bx:if toolRedactMs GT 0 OR toolRestoreMs GT 0>
+            <span class="bx-sentinel-badge" title="Tool-call redact + restore">
+                🔧 Tool #numberFormat( toolRedactMs + toolRestoreMs, "0" )# ms
+            </span>
+        </bx:if>
+
+        <bx:if llmRoundtrip GT 0>
+            <span class="bx-sentinel-badge" title="End-to-end LLM call time">
+                LLM #numberFormat( llmRoundtrip )# ms
+                <bx:if overheadPct GT 0>
+                    <span class="text-muted">(#numberFormat( overheadPct, "0.0" )#% overhead)</span>
+                </bx:if>
+            </span>
+        </bx:if>
+
+        <bx:if tokensMinted GT 0>
+            <span class="bx-sentinel-badge" title="Tokens minted this turn (category labels)">
+                #tokensMinted# token#tokensMinted == 1 ? "" : "s"#<bx:if len( labelSummary )>
+                    · <span class="font-monospace">#labelSummary#</span></bx:if>
+            </span>
+        </bx:if>
+
+    </div>
+</div>
+</bx:output>

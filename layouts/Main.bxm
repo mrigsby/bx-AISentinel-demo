@@ -1,0 +1,583 @@
+<bx:setting enableCFOutputOnly="true">
+<bx:output>
+<!DOCTYPE html>
+<html lang="en"
+      data-bs-theme="dark"
+      data-layout="vertical"
+      data-sidenav-size="default"
+      data-sidenav-color="dark"
+      data-topbar-color="dark"
+      data-layout-width="fluid">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="bx-AISentinel demo — middleware tokenizes secrets before LLM calls and restores on return.">
+    <title>#( prc.pageTitle ?: "Demo" )# · bx-AISentinel</title>
+    <link rel="icon" type="image/png" href="/assets/images/brand/bx-ai-icon-full.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+
+    <link rel="stylesheet" href="/assets/css/app.css">
+
+    <!-- CBWire auto-injects its styles before </head> via its interceptor. -->
+
+    <style>
+        /* Small demo-only tweaks on top of the BX-AI+ theme */
+        .bx-sentinel-badge { display:inline-flex; align-items:center; gap:.5rem; font-family:"JetBrains Mono",monospace; font-size:.8125rem; padding:.25rem .625rem; border-radius:.5rem; }
+        .bx-sentinel-badge--success { background:rgba(34,197,94,.12); color:##22c55e; border:1px solid rgba(34,197,94,.28); }
+        .bx-sentinel-badge--warning { background:rgba(234,179,8,.12); color:##eab308; border:1px solid rgba(234,179,8,.28); }
+        .bx-sentinel-badge--danger  { background:rgba(239,68,68,.12);  color:##ef4444; border:1px solid rgba(239,68,68,.28); }
+
+        /* Footer wrapper separating the Sentinel metrics chips from the reply body */
+        .bx-sentinel-metrics-footer {
+            margin-top:.875rem;
+            padding-top:.625rem;
+            border-top:1px dashed rgba(255,255,255,.12);
+        }
+        .bx-sentinel-metrics-footer__label {
+            display:inline-flex;
+            align-items:center;
+            gap:.35rem;
+            font-size:.6875rem;
+            font-weight:600;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+            color:rgba(255,255,255,.5);
+            margin-bottom:.375rem;
+        }
+        .bx-sentinel-metrics-footer__label i { width:.75rem; height:.75rem; }
+        .bx-sentinel-metrics-footer__badges {
+            display:flex;
+            flex-wrap:wrap;
+            align-items:center;
+            gap:.375rem;
+            font-size:.75rem;
+        }
+        [data-bs-theme="light"] .bx-sentinel-metrics-footer         { border-top-color:rgba(0,0,0,.15); }
+        [data-bs-theme="light"] .bx-sentinel-metrics-footer__label  { color:rgba(0,0,0,.45); }
+        .bx-sentinel-msg { border-radius:1rem; padding:1rem 1.25rem; margin-bottom:.75rem; max-width:80%; min-width:0; }
+        .bx-sentinel-msg--user      { background:rgba(124,58,237,.12); border:1px solid rgba(124,58,237,.3); margin-left:auto; }
+        .bx-sentinel-msg--assistant { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); }
+        .bx-sentinel-seed-btn { font-family:"JetBrains Mono",monospace; font-size:.75rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+        .bx-sentinel-inspector { font-family:"JetBrains Mono",monospace; font-size:.78125rem; background:rgba(0,0,0,.35); padding:.75rem; border-radius:.5rem; white-space:pre-wrap; word-break:break-word; max-height:18rem; overflow:auto; }
+        .bx-sentinel-inspector--before { border-left:3px solid ##ef4444; }
+        .bx-sentinel-inspector--after  { border-left:3px solid ##22c55e; }
+        .bx-sentinel-inspector--tokenized { border-left:3px solid ##eab308; background:rgba(234,179,8,.06); }
+        .bx-sentinel-textarea {
+            resize:none;
+            overflow-y:hidden;
+            max-height:12rem;   /* ~200px; after this, overflow-y becomes scroll */
+            line-height:1.45;
+            transition:height 60ms ease-out;
+        }
+        .bx-sentinel-textarea.is-capped { overflow-y:auto; }
+        .bx-sentinel-thinking-dots::after { content:""; display:inline-block; width:1.2em; text-align:left; animation:bx-sentinel-dots 1.2s steps(4,end) infinite; }
+        @keyframes bx-sentinel-dots { 0%{content:"";} 25%{content:".";} 50%{content:"..";} 75%{content:"...";} 100%{content:"";} }
+
+        /* ─── Markdown rendering inside assistant bubbles ─────────────── */
+        .bx-sentinel-markdown { font-size:.9375rem; line-height:1.55; }
+        .bx-sentinel-markdown > *:first-child { margin-top:0; }
+        .bx-sentinel-markdown > *:last-child  { margin-bottom:0; }
+        .bx-sentinel-markdown h1,
+        .bx-sentinel-markdown h2,
+        .bx-sentinel-markdown h3,
+        .bx-sentinel-markdown h4 { margin:1rem 0 .5rem; font-weight:600; line-height:1.25; }
+        .bx-sentinel-markdown h1 { font-size:1.25rem; }
+        .bx-sentinel-markdown h2 { font-size:1.125rem; }
+        .bx-sentinel-markdown h3 { font-size:1rem; }
+        .bx-sentinel-markdown h4 { font-size:.9375rem; }
+        .bx-sentinel-markdown p  { margin:0 0 .75rem; }
+        .bx-sentinel-markdown ul,
+        .bx-sentinel-markdown ol { margin:0 0 .75rem; padding-left:1.25rem; }
+        .bx-sentinel-markdown li { margin-bottom:.25rem; }
+        .bx-sentinel-markdown code {
+            font-family:"JetBrains Mono",ui-monospace,monospace;
+            font-size:.85em;
+            background:rgba(255,255,255,.08);
+            padding:.1em .35em;
+            border-radius:.25rem;
+            color:##eab308;
+        }
+        .bx-sentinel-markdown pre {
+            background:rgba(0,0,0,.35);
+            border:1px solid rgba(255,255,255,.08);
+            border-radius:.5rem;
+            padding:.75rem 1rem;
+            margin:.5rem 0 .75rem;
+            overflow-x:auto;
+            font-size:.85em;
+            line-height:1.45;
+        }
+        .bx-sentinel-markdown pre code {
+            background:transparent;
+            padding:0;
+            color:inherit;
+        }
+        .bx-sentinel-markdown blockquote {
+            border-left:3px solid rgba(124,58,237,.45);
+            padding:.25rem .875rem;
+            margin:.5rem 0;
+            color:rgba(255,255,255,.75);
+        }
+        .bx-sentinel-markdown a { color:##7c3aed; text-decoration:underline; }
+        /* Tables can easily exceed the bubble's width. Make the table itself a
+           horizontally-scrollable block so it stays contained, and give the
+           markdown container a min-width of 0 so flex layout respects the
+           bubble's max-width constraint. */
+        .bx-sentinel-markdown { min-width:0; max-width:100%; }
+        .bx-sentinel-markdown table {
+            display:block;
+            overflow-x:auto;
+            max-width:100%;
+            border-collapse:collapse;
+            margin:.5rem 0 .75rem;
+            font-size:.875em;
+        }
+        .bx-sentinel-markdown th,
+        .bx-sentinel-markdown td {
+            border:1px solid rgba(255,255,255,.1);
+            padding:.35rem .6rem;
+            text-align:left;
+            white-space:nowrap;
+        }
+        .bx-sentinel-markdown hr {
+            border:0;
+            border-top:1px solid rgba(255,255,255,.12);
+            margin:1rem 0;
+        }
+        [data-bs-theme="light"] .bx-sentinel-markdown code { background:rgba(0,0,0,.06); color:##b45309; }
+        [data-bs-theme="light"] .bx-sentinel-markdown pre  { background:rgba(0,0,0,.04); border-color:rgba(0,0,0,.1); }
+        [data-bs-theme="light"] .bx-sentinel-markdown blockquote { color:rgba(0,0,0,.7); }
+
+        /* ─── Sentinel / Coaching toggle group (above chat transcript) ── */
+        .bx-sentinel-controls {
+            display:inline-flex;
+            align-items:stretch;
+            gap:0;
+            background:rgba(255,255,255,.04);
+            border:1px solid rgba(255,255,255,.1);
+            border-radius:999px;
+            padding:.125rem;
+            transition:border-color .15s ease, background .15s ease;
+        }
+        .bx-sentinel-controls.is-armed    { border-color:rgba(34,197,94,.35); background:rgba(34,197,94,.06); }
+        .bx-sentinel-controls.is-disarmed { border-color:rgba(239,68,68,.35); background:rgba(239,68,68,.06); }
+
+        .bx-sentinel-control {
+            display:inline-flex;
+            align-items:center;
+            gap:.5rem;
+            padding:.25rem .75rem;
+            border-radius:999px;
+            cursor:pointer;
+            margin:0;
+            font-size:.8125rem;
+            line-height:1.2;
+            color:rgba(255,255,255,.75);
+            transition:color .15s ease, background .15s ease;
+            user-select:none;
+            position:relative;
+        }
+        /* CSS tooltip on pill controls — appears below on hover. */
+        .bx-sentinel-control[data-bx-tip]::after {
+            content:attr(data-bx-tip);
+            position:absolute;
+            top:calc(100% + 8px);
+            left:50%;
+            transform:translateX(-50%) translateY(-4px);
+            background:rgba(15,15,22,.96);
+            color:##e5e7eb;
+            padding:.5rem .75rem;
+            border:1px solid rgba(255,255,255,.12);
+            border-radius:.5rem;
+            font-size:.75rem;
+            font-weight:400;
+            letter-spacing:0;
+            line-height:1.35;
+            white-space:normal;
+            width:max-content;
+            max-width:320px;
+            pointer-events:none;
+            opacity:0;
+            transition:opacity .15s ease, transform .15s ease;
+            z-index:1000;
+            text-transform:none;
+            box-shadow:0 8px 24px rgba(0,0,0,.35);
+        }
+        .bx-sentinel-control[data-bx-tip]::before {
+            content:"";
+            position:absolute;
+            top:calc(100% + 2px);
+            left:50%;
+            transform:translateX(-50%) translateY(-4px);
+            border:6px solid transparent;
+            border-bottom-color:rgba(15,15,22,.96);
+            pointer-events:none;
+            opacity:0;
+            transition:opacity .15s ease, transform .15s ease;
+            z-index:1001;
+        }
+        .bx-sentinel-control[data-bx-tip]:hover::after,
+        .bx-sentinel-control[data-bx-tip]:hover::before {
+            opacity:1;
+            transform:translateX(-50%) translateY(0);
+        }
+        [data-bs-theme="light"] .bx-sentinel-control[data-bx-tip]::after {
+            background:##1f2937; color:##f9fafb; border-color:rgba(0,0,0,.15);
+        }
+        [data-bs-theme="light"] .bx-sentinel-control[data-bx-tip]::before {
+            border-bottom-color:##1f2937;
+        }
+        .bx-sentinel-control + .bx-sentinel-control {
+            margin-left:.125rem;
+            border-left:1px solid rgba(255,255,255,.08);
+            border-top-left-radius:0;
+            border-bottom-left-radius:0;
+            padding-left:.875rem;
+        }
+        .bx-sentinel-control i { width:.95rem; height:.95rem; flex:0 0 auto; }
+        .bx-sentinel-control__label { font-weight:500; letter-spacing:.01em; }
+        .bx-sentinel-control .form-check { min-height:auto; padding-left:2.2em; margin-left:.125rem; }
+        .bx-sentinel-control .form-check-input { margin-top:0; cursor:pointer; }
+
+        .bx-sentinel-control.is-on.is-primary { color:##22c55e; }
+        .bx-sentinel-control.is-on.is-primary .form-check-input:checked { background-color:##22c55e; border-color:##22c55e; }
+        .bx-sentinel-control.is-on:not(.is-primary) { color:##38bdf8; }
+        .bx-sentinel-control.is-on:not(.is-primary) .form-check-input:checked { background-color:##38bdf8; border-color:##38bdf8; }
+        .bx-sentinel-control.is-off { color:rgba(255,255,255,.45); }
+        .bx-sentinel-control.is-off.is-primary { color:##ef4444; }
+        .bx-sentinel-control.is-disabled { opacity:.45; cursor:not-allowed; }
+        .bx-sentinel-control.is-disabled .form-check-input { cursor:not-allowed; }
+
+        /* Light-theme overrides */
+        [data-bs-theme="light"] .bx-sentinel-controls { background:rgba(0,0,0,.03); border-color:rgba(0,0,0,.12); }
+        [data-bs-theme="light"] .bx-sentinel-controls.is-armed    { background:rgba(34,197,94,.08);  border-color:rgba(34,197,94,.45); }
+        [data-bs-theme="light"] .bx-sentinel-controls.is-disarmed { background:rgba(239,68,68,.08);  border-color:rgba(239,68,68,.45); }
+        [data-bs-theme="light"] .bx-sentinel-control { color:rgba(0,0,0,.65); }
+        [data-bs-theme="light"] .bx-sentinel-control + .bx-sentinel-control { border-left-color:rgba(0,0,0,.1); }
+        [data-bs-theme="light"] .bx-sentinel-control.is-off { color:rgba(0,0,0,.4); }
+
+        /* ─── Inspector panel copy buttons ────────────────────────────── */
+        .bx-sentinel-inspector-head {
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:.25rem;
+        }
+        .bx-sentinel-copy-btn {
+            background:transparent;
+            border:1px solid transparent;
+            border-radius:.375rem;
+            padding:.2rem .35rem;
+            color:rgba(255,255,255,.55);
+            cursor:pointer;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            transition:color .12s ease, background .12s ease, border-color .12s ease;
+        }
+        .bx-sentinel-copy-btn:hover {
+            color:rgba(255,255,255,.95);
+            background:rgba(255,255,255,.06);
+            border-color:rgba(255,255,255,.12);
+        }
+        .bx-sentinel-copy-btn.is-copied {
+            color:##22c55e;
+            border-color:rgba(34,197,94,.4);
+            background:rgba(34,197,94,.1);
+        }
+        .bx-sentinel-copy-btn i { width:.875rem; height:.875rem; }
+        [data-bs-theme="light"] .bx-sentinel-copy-btn { color:rgba(0,0,0,.5); }
+        [data-bs-theme="light"] .bx-sentinel-copy-btn:hover { color:rgba(0,0,0,.9); background:rgba(0,0,0,.05); border-color:rgba(0,0,0,.1); }
+        .bx-sentinel-banner { background:linear-gradient(135deg,rgba(124,58,237,.18),rgba(56,189,248,.12)); border:1px solid rgba(124,58,237,.35); border-radius:1rem; padding:1.25rem; margin-bottom:1.25rem; }
+
+        /* Dashboard hero — landing-page intro card */
+        .bx-sentinel-hero {
+            background:linear-gradient(135deg,rgba(124,58,237,.16),rgba(56,189,248,.1));
+            border:1px solid rgba(124,58,237,.35);
+            border-radius:1.25rem;
+            padding:1.75rem 2rem;
+            position:relative;
+            overflow:hidden;
+        }
+        .bx-sentinel-hero::before {
+            content:"";
+            position:absolute;
+            inset:auto -120px -120px auto;
+            width:320px; height:320px;
+            background:radial-gradient(circle, rgba(124,58,237,.18), transparent 60%);
+            pointer-events:none;
+        }
+        .bx-sentinel-hero__inner {
+            display:flex;
+            gap:1.5rem;
+            align-items:flex-start;
+            position:relative;
+            z-index:1;
+        }
+        .bx-sentinel-hero__mark {
+            font-size:2.75rem;
+            line-height:1;
+            flex:0 0 auto;
+            filter:drop-shadow(0 4px 12px rgba(124,58,237,.35));
+        }
+        .bx-sentinel-hero__content { flex:1 1 auto; min-width:0; }
+        .bx-sentinel-hero__title {
+            font-size:2rem;
+            font-weight:700;
+            letter-spacing:-.01em;
+            margin:0 0 .5rem;
+            background:linear-gradient(90deg, ##c4b5fd, ##7dd3fc);
+            -webkit-background-clip:text;
+            background-clip:text;
+            color:transparent;
+        }
+        .bx-sentinel-hero__lede {
+            font-size:1.0625rem;
+            line-height:1.55;
+            margin-bottom:1.5rem;
+            color:rgba(255,255,255,.85);
+        }
+        .bx-sentinel-hero__subhead {
+            font-size:.6875rem;
+            font-weight:600;
+            letter-spacing:.08em;
+            text-transform:uppercase;
+            color:rgba(255,255,255,.5);
+            margin:0 0 .5rem;
+        }
+        .bx-sentinel-hero__cta {
+            display:inline-flex;
+            align-items:center;
+            gap:.5rem;
+            padding:.625rem 1.25rem;
+        }
+        .bx-sentinel-hero__cta-secondary {
+            margin-left:.5rem;
+            display:inline-flex;
+            align-items:center;
+            gap:.5rem;
+            padding:.625rem 1.25rem;
+        }
+        .bx-sentinel-hero__ctas { display:flex; flex-wrap:wrap; gap:.5rem; }
+
+        /* Collapse toggle — top-right corner of the hero */
+        .bx-sentinel-hero__toggle {
+            position:absolute;
+            top:.875rem;
+            right:.875rem;
+            z-index:2;
+            background:rgba(255,255,255,.06);
+            border:1px solid rgba(255,255,255,.12);
+            color:rgba(255,255,255,.7);
+            width:2rem; height:2rem;
+            border-radius:.5rem;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+            transition:color .15s ease, background .15s ease, border-color .15s ease;
+        }
+        .bx-sentinel-hero__toggle:hover {
+            color:##fff;
+            background:rgba(255,255,255,.12);
+            border-color:rgba(255,255,255,.22);
+        }
+        .bx-sentinel-hero__toggle i { width:.9rem; height:.9rem; }
+
+        /* Compact state — tighten the padding + lede margin when collapsed */
+        .bx-sentinel-hero.is-collapsed { padding:1.25rem 1.5rem; }
+        .bx-sentinel-hero.is-collapsed .bx-sentinel-hero__mark { font-size:2rem; }
+        .bx-sentinel-hero.is-collapsed .bx-sentinel-hero__title { font-size:1.5rem; margin-bottom:.375rem; }
+        .bx-sentinel-hero.is-collapsed .bx-sentinel-hero__lede { margin-bottom:.875rem; font-size:.9375rem; }
+
+        [data-bs-theme="light"] .bx-sentinel-hero__toggle {
+            background:rgba(0,0,0,.04);
+            border-color:rgba(0,0,0,.12);
+            color:rgba(0,0,0,.55);
+        }
+        [data-bs-theme="light"] .bx-sentinel-hero__toggle:hover {
+            color:##000;
+            background:rgba(0,0,0,.08);
+            border-color:rgba(0,0,0,.22);
+        }
+        .bx-sentinel-hero code {
+            font-size:.85em;
+            background:rgba(255,255,255,.08);
+            padding:.1em .4em;
+            border-radius:.25rem;
+            color:##eab308;
+        }
+        [data-bs-theme="light"] .bx-sentinel-hero {
+            background:linear-gradient(135deg,rgba(124,58,237,.1),rgba(56,189,248,.08));
+            border-color:rgba(124,58,237,.4);
+        }
+        [data-bs-theme="light"] .bx-sentinel-hero__title {
+            background:linear-gradient(90deg, ##7c3aed, ##0284c7);
+            -webkit-background-clip:text;
+            background-clip:text;
+            color:transparent;
+        }
+        [data-bs-theme="light"] .bx-sentinel-hero__lede { color:rgba(0,0,0,.75); }
+        [data-bs-theme="light"] .bx-sentinel-hero__subhead { color:rgba(0,0,0,.55); }
+        [data-bs-theme="light"] .bx-sentinel-hero code { background:rgba(0,0,0,.06); color:##b45309; }
+
+        @media ( max-width: 640px ) {
+            .bx-sentinel-hero { padding:1.25rem; }
+            .bx-sentinel-hero__inner { flex-direction:column; gap:.75rem; }
+            .bx-sentinel-hero__mark { font-size:2rem; }
+            .bx-sentinel-hero__title { font-size:1.625rem; }
+            .bx-sentinel-hero__cta-secondary { margin-left:0; margin-top:.5rem; }
+        }
+    </style>
+</head>
+<body data-bx-page="#( prc.pageModule ?: 'chat' )#">
+
+    <div class="bx-wrapper" id="bx-wrapper">
+
+        #view( view="partials/_topbar" )#
+
+        #view( view="partials/_sidebar" )#
+
+        <main class="bx-page" id="bx-page">
+            <div class="bx-content">
+                <div class="container-fluid py-4">
+                    #view()#
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <script src="/assets/js/app.js"></script>
+
+    <!-- Lucide icons: bundled app.js paints on initial load but keeps its instance
+         private. CBWire morphs revert replaced SVGs back to `<i data-lucide="...">`
+         placeholders, so we re-run createIcons when unprocessed placeholders
+         appear. Observer is filtered to trigger ONLY on added <i data-lucide>
+         elements — never on Lucide's own <svg> output — which breaks the
+         feedback loop that caused the earlier twitch. -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        ( function () {
+            function refresh() {
+                if ( window.lucide && typeof window.lucide.createIcons === "function" ) {
+                    try { window.lucide.createIcons(); } catch ( e ) {}
+                }
+            }
+
+            function hasLucidePlaceholder( node ) {
+                if ( node.nodeType !== 1 ) return false;
+                if ( node.matches && node.matches( "i[data-lucide]" ) ) return true;
+                if ( node.querySelector && node.querySelector( "i[data-lucide]" ) ) return true;
+                return false;
+            }
+
+            // Initial paint
+            refresh();
+
+            // Watch the entire body. Fire ONLY when an <i data-lucide> gets
+            // added (by CBWire morph). Ignore <svg> additions (our own output).
+            new MutationObserver( function ( mutations ) {
+                for ( var i = 0; i < mutations.length; i++ ) {
+                    var added = mutations[ i ].addedNodes;
+                    for ( var j = 0; j < added.length; j++ ) {
+                        if ( hasLucidePlaceholder( added[ j ] ) ) {
+                            refresh();
+                            return;
+                        }
+                    }
+                }
+            } ).observe( document.body, { childList: true, subtree: true } );
+        } )();
+    </script>
+
+    <!-- Textarea auto-grow: resize `[data-bx-autogrow]` elements to fit their
+         content up to the CSS max-height, then let the scrollbar take over. -->
+    <script>
+        ( function () {
+            if ( window.bxSentinelAutogrowBound ) return;
+            window.bxSentinelAutogrowBound = true;
+
+            function autogrow( ta ) {
+                if ( ! ta ) return;
+                // Read the CSS max-height (falls back to 999 if not set).
+                var max = parseFloat( getComputedStyle( ta ).maxHeight );
+                if ( isNaN( max ) ) max = 999;
+                // Reset so scrollHeight reflects actual content, then clamp.
+                ta.style.height = "auto";
+                var target = Math.min( ta.scrollHeight, max );
+                ta.style.height = target + "px";
+                // Toggle scrolling only when we're at the cap.
+                ta.classList.toggle( "is-capped", ta.scrollHeight > max );
+            }
+
+            function autogrowAll() {
+                document.querySelectorAll( "[data-bx-autogrow]" ).forEach( autogrow );
+            }
+
+            // Typing / pasting
+            document.addEventListener( "input", function ( e ) {
+                if ( e.target && e.target.matches && e.target.matches( "[data-bx-autogrow]" ) ) {
+                    autogrow( e.target );
+                }
+            } );
+
+            // Programmatic value changes (CBWire morph after seed prompt click):
+            // detect via MutationObserver on value-bearing attributes + rAF so we
+            // measure AFTER the morph has applied the new value.
+            new MutationObserver( function () { requestAnimationFrame( autogrowAll ); } )
+                .observe( document.body, { childList: true, subtree: true, attributes: true, attributeFilter: [ "value" ] } );
+
+            // Initial paint + on any Livewire/CBWire lifecycle event.
+            autogrowAll();
+            [ "livewire:init", "livewire:load", "livewire:update", "livewire:navigated" ].forEach( function ( evt ) {
+                document.addEventListener( evt, autogrowAll );
+            } );
+        } )();
+    </script>
+
+    <!-- Delegated copy-to-clipboard handler for inspector panels. One listener
+         on document.body survives CBWire re-renders — no rebinding needed. -->
+    <script>
+        ( function () {
+            if ( window.bxSentinelCopyBound ) return;
+            window.bxSentinelCopyBound = true;
+            document.body.addEventListener( "click", function ( e ) {
+                var btn = e.target.closest ? e.target.closest( "[data-bx-copy-target]" ) : null;
+                if ( ! btn ) return;
+                e.preventDefault();
+                var targetId = btn.getAttribute( "data-bx-copy-target" );
+                var src = document.getElementById( targetId );
+                if ( ! src ) return;
+                var text = src.innerText || src.textContent || "";
+                var done = function () {
+                    btn.classList.add( "is-copied" );
+                    setTimeout( function () { btn.classList.remove( "is-copied" ); }, 1200 );
+                };
+                if ( navigator.clipboard && navigator.clipboard.writeText ) {
+                    navigator.clipboard.writeText( text ).then( done, function () {} );
+                } else {
+                    try {
+                        var ta = document.createElement( "textarea" );
+                        ta.value = text;
+                        ta.style.position = "fixed"; ta.style.opacity = "0";
+                        document.body.appendChild( ta );
+                        ta.select();
+                        document.execCommand( "copy" );
+                        document.body.removeChild( ta );
+                        done();
+                    } catch ( err ) {}
+                }
+            }, false );
+        } )();
+    </script>
+
+    <!-- CBWire auto-injects its scripts before </body> via its interceptor. -->
+
+</body>
+</html>
+</bx:output>
+<bx:setting enableCFOutputOnly="false">

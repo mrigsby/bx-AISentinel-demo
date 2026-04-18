@@ -1,0 +1,41 @@
+# ─── Secrets ─────────────────────────────────────────────────────────────
+# Never commit env files — they carry API keys.
+.env
+.env.local
+.env.*.local
+
+# ─── CommandBox / ColdBox runtime artifacts ──────────────────────────────
+# Installed dependencies (restored via `box install`)
+coldbox/
+testbox/
+modules/
+
+# bx-aisentinel is installed here either as a symlink (for sibling-repo
+# dev) or as a CommandBox git-install — either way it's restored, not
+# committed. See box.json installPaths.
+modules_app/bx-aisentinel
+
+# CommandBox server runtime + engine downloads
+.engine/
+**/server-home/
+**/.commandbox/
+**/WEB-INF/
+server-*.log
+.bx-scheduler
+.cfconfig.json
+
+# Test-runner scratch dirs
+**/.tmp-*/
+
+# Application logs + caches
+logs/
+cache/
+*.log
+
+# ─── OS / editor noise ───────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

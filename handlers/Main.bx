@@ -1,0 +1,50 @@
+/**
+ * Main handler — entry + chat + dashboard pages.
+ *
+ * Page chrome comes from `layouts/Main.bxm`. Chat lives under /chat, dashboard
+ * under /dashboard. The chat UI itself is a CBWire component (`wires/ChatWire.bx`).
+ */
+class {
+
+    property name="sessionMetrics" inject="SessionMetrics";
+
+    /**
+     * onAppStart — one-shot initializer. Reserves a single SessionMetrics
+     * instance for the server's lifetime; individual browser sessions get
+     * their own sub-bucket via the CBWire session cookie.
+     */
+    function onAppStart( event, rc, prc ) {
+        application.bxSentinelDemo = {
+            "startedAt" : now()
+        };
+    }
+
+    /**
+     * GET / — dashboard is the landing page (intro + live session metrics).
+     * Chat is accessed via the CTA on the dashboard or the sidebar.
+     */
+    function index( event, rc, prc ) {
+        relocate( "dashboard" );
+    }
+
+    /**
+     * GET /chat — the main demo page
+     */
+    function chat( event, rc, prc ) {
+        prc.pageTitle = "Chat";
+        prc.activeNav = "chat";
+        event.setView( "main/chat" );
+    }
+
+    /**
+     * GET /dashboard — session-scoped Sentinel metrics.
+     * The data + polling live in `wires/DashboardWire` so the numbers refresh
+     * every 3s without a page reload. This handler just sets the chrome.
+     */
+    function dashboard( event, rc, prc ) {
+        prc.pageTitle = "Sentinel Dashboard";
+        prc.activeNav = "dashboard";
+        event.setView( "main/dashboard" );
+    }
+
+}

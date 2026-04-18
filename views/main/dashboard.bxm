@@ -1,0 +1,127 @@
+<bx:output>
+
+<section class="bx-sentinel-hero mb-4" id="bx-hero">
+
+    <button type="button"
+            class="bx-sentinel-hero__toggle"
+            data-bs-toggle="collapse"
+            data-bs-target="##bx-hero-details"
+            aria-expanded="true"
+            aria-controls="bx-hero-details"
+            aria-label="Collapse introduction"
+            title="Collapse introduction">
+        <i data-lucide="chevrons-up-down" aria-hidden="true"></i>
+    </button>
+
+    <div class="bx-sentinel-hero__inner">
+
+        <div class="bx-sentinel-hero__mark" aria-hidden="true">🛡️</div>
+
+        <div class="bx-sentinel-hero__content">
+
+            <h1 class="bx-sentinel-hero__title">bx-AISentinel</h1>
+            <p class="bx-sentinel-hero__lede">
+                A drop-in middleware for <a href="https://ai.ortusbooks.com/" target="_blank" rel="noopener">BoxLang AI</a>
+                that keeps secrets, credentials, and PII out of your LLM conversations —
+                one line of configuration, zero changes to your prompts.
+            </p>
+
+            <!--- Collapsible detail section. Default: expanded. State persists
+                  in localStorage under `bx.hero.collapsed` via the script below. --->
+            <div id="bx-hero-details" class="collapse show">
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6">
+                        <h2 class="bx-sentinel-hero__subhead">The problem</h2>
+                        <p class="mb-0 small">
+                            Developers routinely paste real secrets into AI agents —
+                            API keys in stack traces, passwords in <code>.env</code> snippets,
+                            customer PII in debugging prompts. Those values leave your machine,
+                            land in the provider's logs, and in some cases (like this demo's default
+                            model, <code>openrouter/elephant-alpha</code>) are explicitly retained to
+                            train future versions of the model. Once out, you can't pull them back.
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h2 class="bx-sentinel-hero__subhead">How it works</h2>
+                        <p class="mb-0 small">
+                            Before every LLM call, Sentinel scans your outbound messages and
+                            tool-call arguments. Detected secrets are replaced with signed,
+                            reversible tokens like <code>⟦SECRET:AWS_ACCESS_KEY:a1b2c3d4⟧</code>.
+                            The LLM reasons about the placeholder as if it were the real value.
+                            When the reply comes back, Sentinel verifies each token's signature
+                            and restores your plaintext locally. The provider only ever sees tokens.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bx-sentinel-hero__ctas">
+                <a href="/chat" class="btn btn-primary btn-lg bx-sentinel-hero__cta">
+                    <i data-lucide="message-square-text" style="width:1.1rem;height:1.1rem;"></i>
+                    Open the chat demo
+                    <i data-lucide="arrow-right" style="width:1rem;height:1rem;"></i>
+                </a>
+                <a href="https://ai.ortusbooks.com/main-components/middleware" target="_blank" rel="noopener"
+                   class="btn btn-outline-secondary btn-lg bx-sentinel-hero__cta-secondary">
+                    <i data-lucide="book-open" style="width:1rem;height:1rem;"></i>
+                    Middleware docs
+                </a>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!--- Hero collapse: remembers user's preference across page loads. --->
+<script>
+    ( function () {
+        var hero    = document.getElementById( "bx-hero" );
+        var details = document.getElementById( "bx-hero-details" );
+        if ( ! hero || ! details ) return;
+        var KEY     = "bx.hero.collapsed";
+        var toggle  = hero.querySelector( ".bx-sentinel-hero__toggle" );
+
+        function setCollapsedState( collapsed ) {
+            if ( collapsed ) {
+                details.classList.remove( "show" );
+                hero.classList.add( "is-collapsed" );
+                toggle && toggle.setAttribute( "aria-expanded", "false" );
+            } else {
+                details.classList.add( "show" );
+                hero.classList.remove( "is-collapsed" );
+                toggle && toggle.setAttribute( "aria-expanded", "true" );
+            }
+        }
+
+        // Restore persisted state
+        try {
+            if ( localStorage.getItem( KEY ) === "1" ) setCollapsedState( true );
+        } catch ( e ) {}
+
+        // Save on toggle (Bootstrap events)
+        details.addEventListener( "shown.bs.collapse",  function () {
+            hero.classList.remove( "is-collapsed" );
+            try { localStorage.setItem( KEY, "0" ); } catch ( e ) {}
+        } );
+        details.addEventListener( "hidden.bs.collapse", function () {
+            hero.classList.add( "is-collapsed" );
+            try { localStorage.setItem( KEY, "1" ); } catch ( e ) {}
+        } );
+    } )();
+</script>
+
+<div class="d-flex justify-content-between align-items-end mb-3 mt-5">
+    <div>
+        <h2 class="h5 mb-1">Live session metrics</h2>
+        <p class="small text-muted mb-0">
+            This page polls SessionMetrics every 3 seconds. Any chat turn that mints tokens
+            shows up here — including a category breakdown and recent-run history.
+        </p>
+    </div>
+</div>
+
+#wire( "DashboardWire" )#
+
+</bx:output>

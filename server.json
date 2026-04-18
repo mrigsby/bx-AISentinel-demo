@@ -1,0 +1,26 @@
+{
+    "name":"bx-aisentinel-demo",
+    "app":{
+        "cfengine":"boxlang@1",
+        "serverHomeDirectory":".engine/boxlang",
+        "engineConfigFile":".boxlang.json"
+    },
+    "web":{
+        "host":"127.0.0.1",
+        "http":{
+            "port":"8888"
+        },
+        "rewrites":{
+            "enable":true
+        },
+        "welcomeFiles":"index.bxm"
+    },
+    "jvm":{
+        "heapSize":1024,
+        "javaVersion":"openjdk21"
+    },
+    "openBrowser":true,
+    "scripts":{
+        "onServerInitialInstall":"install bx-compat-cfml,bx-esapi,bx-ai,bx-markdown"
+    }
+}

@@ -1,0 +1,131 @@
+/**
+ * SessionMetricsSpec — unit coverage for the session-scoped metrics aggregator
+ * that ChatWire writes to and DashboardWire reads from.
+ */
+class extends="testbox.system.BaseSpec" {
+
+    function run() {
+
+        describe( "SessionMetrics.record() + getSummary()", () => {
+
+            it( "returns an empty summary for a fresh session", () => {
+                var m   = _make();
+                var sum = m.getSummary( "sess-a" );
+                expect( sum.totalRuns         ).toBe( 0 );
+                expect( sum.totalTokensMinted ).toBe( 0 );
+                expect( sum.categories        ).toBeEmpty();
+                expect( sum.recent            ).toHaveLength( 0 );
+            } );
+
+            it( "rolls up a single run's metrics into the session totals", () => {
+                var m = _make();
+                m.record( "sess-a", {
+                    "outboundMs"     : 5,
+                    "inboundMs"      : 2,
+                    "tokensMinted"   : 3,
+                    "llmRoundtripMs" : 1500,
+                    "categories"     : { "cloud-keys": 1, "pii": 2 }
+                } );
+
+                var sum = m.getSummary( "sess-a" );
+                expect( sum.totalRuns         ).toBe( 1 );
+                expect( sum.totalTokensMinted ).toBe( 3 );
+                expect( sum.totalOutboundMs   ).toBe( 5 );
+                expect( sum.totalInboundMs    ).toBe( 2 );
+                expect( sum.totalLlmMs        ).toBe( 1500 );
+                expect( sum.categories[ "cloud-keys" ] ).toBe( 1 );
+                expect( sum.categories[ "pii" ] ).toBe( 2 );
+                expect( sum.recent            ).toHaveLength( 1 );
+                expect( sum.recent[ 1 ].tokensMinted ).toBe( 3 );
+            } );
+
+            it( "accumulates multiple runs into per-session totals", () => {
+                var m = _make();
+                m.record( "sess-a", { "outboundMs": 3, "tokensMinted": 1, "categories": { "pii": 1 } } );
+                m.record( "sess-a", { "outboundMs": 7, "tokensMinted": 2, "categories": { "pii": 1, "generic": 1 } } );
+
+                var sum = m.getSummary( "sess-a" );
+                expect( sum.totalRuns          ).toBe( 2 );
+                expect( sum.totalTokensMinted  ).toBe( 3 );
+                expect( sum.totalOutboundMs    ).toBe( 10 );
+                expect( sum.categories[ "pii" ]     ).toBe( 2 );
+                expect( sum.categories[ "generic" ] ).toBe( 1 );
+            } );
+
+            it( "computes overheadRatio against LLM wall time", () => {
+                var m = _make();
+                m.record( "sess-a", {
+                    "outboundMs"     : 5,
+                    "inboundMs"      : 5,
+                    "llmRoundtripMs" : 1000
+                } );
+                expect( m.getSummary( "sess-a" ).overheadRatio ).toBe( "1.00" );
+            } );
+
+            it( "returns overheadRatio of 0 when no LLM time has been recorded", () => {
+                var m = _make();
+                m.record( "sess-a", { "outboundMs": 5, "inboundMs": 2 } );
+                expect( m.getSummary( "sess-a" ).overheadRatio ).toBe( "0.00" );
+            } );
+
+            it( "tolerates metric structs that omit any field", () => {
+                var m = _make();
+                m.record( "sess-a", {} );
+                var sum = m.getSummary( "sess-a" );
+                expect( sum.totalRuns         ).toBe( 1 );
+                expect( sum.totalTokensMinted ).toBe( 0 );
+                expect( sum.categories        ).toBeEmpty();
+            } );
+
+        } );
+
+        describe( "SessionMetrics session isolation", () => {
+
+            it( "keeps distinct session IDs entirely separate", () => {
+                var m = _make();
+                m.record( "sess-a", { "tokensMinted": 5 } );
+                m.record( "sess-b", { "tokensMinted": 1 } );
+
+                expect( m.getSummary( "sess-a" ).totalTokensMinted ).toBe( 5 );
+                expect( m.getSummary( "sess-b" ).totalTokensMinted ).toBe( 1 );
+                expect( m.getSummary( "sess-c" ).totalRuns         ).toBe( 0 );
+            } );
+
+            it( "reset() clears just the target session's bucket", () => {
+                var m = _make();
+                m.record( "sess-a", { "tokensMinted": 5 } );
+                m.record( "sess-b", { "tokensMinted": 1 } );
+
+                m.reset( "sess-a" );
+
+                expect( m.getSummary( "sess-a" ).totalRuns         ).toBe( 0 );
+                expect( m.getSummary( "sess-b" ).totalTokensMinted ).toBe( 1 );
+            } );
+
+        } );
+
+        describe( "SessionMetrics recent-runs ring", () => {
+
+            it( "caps the recent ring at 50 entries (oldest drops off)", () => {
+                var m = _make();
+                for ( var i = 1; i <= 75; i++ ) {
+                    m.record( "sess-a", { "tokensMinted": i } );
+                }
+                var sum = m.getSummary( "sess-a" );
+                expect( sum.totalRuns ).toBe( 75 );
+                expect( sum.recent    ).toHaveLength( 50 );
+
+                // Newest-first via prepend; first entry is run #75, last in ring is #26.
+                expect( sum.recent[ 1 ].tokensMinted  ).toBe( 75 );
+                expect( sum.recent[ 50 ].tokensMinted ).toBe( 26 );
+            } );
+
+        } );
+
+    }
+
+    private any function _make() {
+        return new models.SessionMetrics();
+    }
+
+}

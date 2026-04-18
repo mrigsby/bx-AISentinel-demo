@@ -1,0 +1,66 @@
+/**
+ * SeededPrompts — the canonical list of demo prompt examples.
+ *
+ * Shared by the ChatWire (which needs to look up a prompt body by index when
+ * the user clicks a seed button) and the _seeded-prompts view partial (which
+ * renders the button row). Keeping the list here means the button's wire:click
+ * can pass a plain integer index instead of the body text — no need to escape
+ * apostrophes or quotes through a JS-string-inside-an-HTML-attribute.
+ */
+class singleton {
+
+    property name="prompts" type="array";
+
+    function init() {
+        variables.prompts = [
+            {
+                "label" : "AWS key rotation",
+                "body"  : "My AWS key is AKIAIOSFODNN7EXAMPLE — what is the cli command to run to rotate it?"
+            },
+            {
+                "label" : "GitHub token revoke",
+                "body"  : "Here is my token: ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa — what is the cli command to run to revoke it?"
+            },
+            {
+                "label" : "Look up customer by SSN",
+                "body"  : "This user's SSN is 123-45-6789 — what is the cli command to run to look them up in our system?"
+            },
+            {
+                "label" : "Debug a DB connection",
+                "body"  : "Why would this connection fail? postgres://admin:p4ssw0rd@db.example.com:5432/prod"
+            },
+            {
+                "label" : "Email a support update",
+                "body"  : "Draft a note to alice@example.com letting her know her ticket is resolved."
+            },
+            {
+                "label" : "Audit a datasource block",
+                "body"  : "Is this boxlang.json snippet safe to commit? {""datasources"":{""prod"":{""password"":""sekret-prod-1""}}}"
+            },
+            {
+                "label" : "Audit deployment .env (multi-secret)",
+                "body"  : "Review this production .env before I commit it — what should I change?"
+                        & char( 10 ) & char( 10 )
+                        & "AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE" & char( 10 )
+                        & "GITHUB_TOKEN=ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" & char( 10 )
+                        & "STRIPE_SECRET_KEY=sk_live_" & repeatString( "a", 24 ) & char( 10 )
+                        & "DATABASE_URL=postgres://admin:p4ssw0rd@db.example.com:5432/prod" & char( 10 )
+                        & "SENDGRID_API_KEY=SG.aaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" & char( 10 )
+                        & "ADMIN_EMAIL=ops@example.com"
+            }
+        ];
+        return this;
+    }
+
+    array function getAll() {
+        return variables.prompts;
+    }
+
+    struct function getByIndex( required numeric seedIndex ) {
+        if ( arguments.seedIndex >= 1 && arguments.seedIndex <= arrayLen( variables.prompts ) ) {
+            return variables.prompts[ arguments.seedIndex ];
+        }
+        return { "label": "", "body": "" };
+    }
+
+}

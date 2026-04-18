@@ -1,0 +1,119 @@
+<bx:output>
+<!---
+    Poll every 3 seconds via CBWire's `wire:poll` directive. The polling
+    happens client-side; the server work is a cheap getSummary() lookup.
+--->
+<div wire:poll.3s="refresh">
+
+    <div class="row g-3 mb-4">
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Total runs</div>
+                    <div class="h2 mb-0">#numberFormat( data.summary.totalRuns ?: 0 )#</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Tokens minted</div>
+                    <div class="h2 mb-0">#numberFormat( data.summary.totalTokensMinted ?: 0 )#</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Sentinel time (cumulative)</div>
+                    <div class="h2 mb-0">#numberFormat( ( data.summary.totalOutboundMs ?: 0 ) + ( data.summary.totalInboundMs ?: 0 ) )# <small class="text-muted fs-6">ms</small></div>
+                    <div class="small text-muted">Out: #numberFormat( data.summary.totalOutboundMs ?: 0 )# ms · In: #numberFormat( data.summary.totalInboundMs ?: 0 )# ms</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted small mb-1">Overhead vs LLM</div>
+                    <div class="h2 mb-0">#data.summary.overheadRatio ?: "0.00"#<small class="text-muted fs-6">%</small></div>
+                    <div class="small text-muted">LLM wall time: #numberFormat( data.summary.totalLlmMs ?: 0 )# ms</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="row g-3">
+
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="mb-3">Categories redacted</h6>
+                    <bx:if structIsEmpty( data.summary.categories ?: {} )>
+                        <p class="text-muted small mb-0">No redactions recorded yet. Try the chat page.</p>
+                    <bx:else>
+                        <ul class="list-unstyled mb-0">
+                            <bx:loop collection="#data.summary.categories#" item="cat">
+                                <li class="d-flex justify-content-between align-items-center py-1">
+                                    <span class="text-capitalize">#replace( cat, "-", " ", "all" )#</span>
+                                    <span class="badge bg-secondary">#data.summary.categories[ cat ]#</span>
+                                </li>
+                            </bx:loop>
+                        </ul>
+                    </bx:if>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Recent runs</h6>
+                        <span class="small text-muted d-flex align-items-center gap-1">
+                            <span class="spinner-grow spinner-grow-sm text-success" role="status" aria-hidden="true" style="width:.5rem;height:.5rem;"></span>
+                            live · refreshes every 3s
+                        </span>
+                    </div>
+                    <bx:if arrayLen( data.summary.recent ?: [] ) EQ 0>
+                        <p class="text-muted small mb-0">No runs yet.</p>
+                    <bx:else>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead class="text-muted small">
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Tokens</th>
+                                        <th>Out ms</th>
+                                        <th>In ms</th>
+                                        <th>LLM ms</th>
+                                        <th>Categories</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <bx:loop array="#data.summary.recent#" item="r">
+                                        <tr>
+                                            <td><small class="font-monospace text-muted">#timeFormat( r.at, "HH:mm:ss" )#</small></td>
+                                            <td>#r.tokensMinted#</td>
+                                            <td>#numberFormat( r.outboundMs, "0" )#</td>
+                                            <td>#numberFormat( r.inboundMs, "0" )#</td>
+                                            <td>#numberFormat( r.llmRoundtripMs )#</td>
+                                            <td><small class="text-muted">#( structKeyExists( r, "categories" ) AND NOT structIsEmpty( r.categories ) ? listToArray( structKeyList( r.categories ) ).sort( "text" ).toList( ", " ) : "—" )#</small></td>
+                                        </tr>
+                                    </bx:loop>
+                                </tbody>
+                            </table>
+                        </div>
+                    </bx:if>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+</bx:output>

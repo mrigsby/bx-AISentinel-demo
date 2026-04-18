@@ -1,0 +1,98 @@
+/**
+ * SessionMetrics — in-memory, session-scoped aggregator for Sentinel runs.
+ *
+ * The ChatWire pushes each completed run's metrics in via `record()`. The
+ * dashboard handler reads via `getSummary()`. Scope is keyed by the
+ * caller's session ID (the CBWire/ColdBox session cookie).
+ *
+ * No persistence — resets on server restart. For the demo this is a feature,
+ * not a bug. See DOCUMENTATION/07-future-work.md for the persistent variant.
+ */
+class singleton {
+
+    property name="buckets" type="struct";
+
+    function init() {
+        variables.buckets = {};
+        return this;
+    }
+
+    /**
+     * Record one run's metrics against a session bucket.
+     * @sessionId  Any stable per-browser identifier (cookie value, JSESSIONID)
+     * @metrics    The struct from middleware.getLastRunMetrics()
+     */
+    function record( required string sessionId, required struct metrics ) {
+        var bucket = _getBucket( arguments.sessionId );
+
+        bucket.totalRuns++;
+        bucket.totalTokensMinted += ( arguments.metrics.tokensMinted ?: 0 );
+        bucket.totalOutboundMs   += ( arguments.metrics.outboundMs    ?: 0 );
+        bucket.totalInboundMs    += ( arguments.metrics.inboundMs     ?: 0 );
+        bucket.totalLlmMs        += ( arguments.metrics.llmRoundtripMs ?: 0 );
+
+        // Category breakdown (accumulated)
+        var cats = arguments.metrics.categories ?: {};
+        for ( var cat in cats ) {
+            bucket.categories[ cat ] = ( bucket.categories.keyExists( cat ) ? bucket.categories[ cat ] : 0 ) + cats[ cat ];
+        }
+
+        // Recent runs ring (last 50)
+        bucket.recent.prepend( {
+            "at"             : now(),
+            "tokensMinted"   : arguments.metrics.tokensMinted ?: 0,
+            "outboundMs"     : arguments.metrics.outboundMs ?: 0,
+            "inboundMs"      : arguments.metrics.inboundMs ?: 0,
+            "llmRoundtripMs" : arguments.metrics.llmRoundtripMs ?: 0,
+            "categories"     : arguments.metrics.categories ?: {}
+        } );
+        while ( bucket.recent.len() > 50 ) {
+            bucket.recent.deleteAt( bucket.recent.len() );
+        }
+
+        return this;
+    }
+
+    /**
+     * Pull the summary struct for a session — ready for template rendering.
+     */
+    struct function getSummary( required string sessionId ) {
+        var bucket = _getBucket( arguments.sessionId );
+
+        var overheadRatio = bucket.totalLlmMs > 0
+            ? ( bucket.totalOutboundMs + bucket.totalInboundMs ) / bucket.totalLlmMs * 100
+            : 0;
+
+        return {
+            "totalRuns"        : bucket.totalRuns,
+            "totalTokensMinted": bucket.totalTokensMinted,
+            "totalOutboundMs"  : bucket.totalOutboundMs,
+            "totalInboundMs"   : bucket.totalInboundMs,
+            "totalLlmMs"       : bucket.totalLlmMs,
+            "overheadRatio"    : numberFormat( overheadRatio, "0.00" ),
+            "categories"       : bucket.categories,
+            "recent"           : bucket.recent
+        };
+    }
+
+    function reset( required string sessionId ) {
+        structDelete( variables.buckets, arguments.sessionId );
+        return this;
+    }
+
+    private struct function _getBucket( required string sessionId ) {
+        if ( !structKeyExists( variables.buckets, arguments.sessionId ) ) {
+            variables.buckets[ arguments.sessionId ] = {
+                "totalRuns"        : 0,
+                "totalTokensMinted": 0,
+                "totalOutboundMs"  : 0,
+                "totalInboundMs"   : 0,
+                "totalLlmMs"       : 0,
+                "categories"       : {},
+                "recent"           : []
+            };
+        }
+        return variables.buckets[ arguments.sessionId ];
+    }
+
+}

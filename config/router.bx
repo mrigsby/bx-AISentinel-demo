@@ -1,0 +1,17 @@
+/**
+ * ColdBox SES Router for the demo.
+ */
+class extends="coldbox.system.web.routing.Router" {
+
+    function configure() {
+        setFullRewrites( true );
+
+        route( "/" ).to( "main.index" );
+        route( "/chat" ).to( "main.chat" );
+        route( "/dashboard" ).to( "main.dashboard" );
+
+        // Leave the default event route enabled for CBWire / debug.
+        route( ":handler/:action?" ).end();
+    }
+
+}

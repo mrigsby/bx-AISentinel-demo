@@ -1,0 +1,9 @@
+<bx:setting enableCFOutputOnly="true">
+<!---
+    ColdBox 8 front controller — placeholder only.
+
+    All request processing is handled by Application.bx::onRequestStart()
+    which delegates to application.cbBootstrap. Calling processColdBoxRequest()
+    here would render the page twice. Keep this file otherwise empty.
+--->
+<bx:setting enableCFOutputOnly="false">

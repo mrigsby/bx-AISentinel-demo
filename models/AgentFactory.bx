@@ -1,0 +1,63 @@
+/**
+ * AgentFactory — builds bx-ai agents outside the CBWire Component context.
+ *
+ * Why this exists: cbwire.models.Component.cfc declares an `onMissingMethod`
+ * handler that throws on any unresolved call. BIFs like `aiModel()` get
+ * intercepted by that handler before BoxLang can fall through to global BIF
+ * resolution, so calling them from a CBWire wire subclass yields
+ * `The method 'aiModel' does not exist`. Calling them from a plain
+ * class (this one) sidesteps that trap.
+ */
+class singleton {
+
+    function init() {
+        return this;
+    }
+
+    /**
+     * Build the Sentinel-protected agent for the chat wire.
+     *
+     * Provider / apiKey / default model live in `boxlang.json` under
+     * `modules.bxai.settings` — we intentionally don't override them here
+     * so a single config change swaps the backend.
+     *
+     * @sentinelEnabled   initial Sentinel toggle state for this run
+     * @manifestScope     "run" or "conversation"
+     * @conversationId    stable key so aiMemory persists across rebuilds
+     *
+     * @return struct of { agent, sentinel }
+     */
+    struct function buildChatAgent(
+                 boolean sentinelEnabled    = true,
+                 string  manifestScope      = "conversation",
+                 string  conversationId     = "",
+                 boolean explainTokensToLLM = true
+    ) {
+        var sentinel = new bxAiSentinel.models.AiSentinelMiddleware( settings: {
+            "manifestScope"       : arguments.manifestScope,
+            "enabled"             : arguments.sentinelEnabled,
+            "explainTokensToLLM"  : arguments.explainTokensToLLM
+        } );
+
+        // Windowed memory keyed by conversationId so agent rebuilds retain history.
+        var memory = aiMemory(
+            memory         : "window",
+            conversationId : len( arguments.conversationId ) ? arguments.conversationId : "chat-default",
+            config         : { "maxMessages" : 10 }
+        );
+
+        var agent = aiAgent(
+            name         : "SentinelDemo",
+            description  : "Demo chat agent for bx-AISentinel",
+            instructions : "You are a helpful assistant. When a user references an opaque placeholder like ⟦SECRET:AWS_ACCESS_KEY:…⟧, treat it as a redacted value and answer symbolically without trying to guess what it stands for.",
+            memory       : memory,
+            middleware   : sentinel
+        );
+
+        return {
+            "agent"    : agent,
+            "sentinel" : sentinel
+        };
+    }
+
+}

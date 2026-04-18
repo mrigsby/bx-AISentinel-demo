@@ -1,0 +1,101 @@
+<bx:output>
+<aside class="bx-sidenav" id="bx-sidenav" aria-label="Primary navigation">
+
+    <div class="bx-sidenav__header">
+        <a class="bx-sidenav__brand" href="/">
+            <img class="bx-sidenav__mark" src="/assets/images/brand/bx-ai-icon-full.svg" alt="" width="32" height="32">
+            <span class="bx-sidenav__brand-text">bx-AISentinel</span>
+        </a>
+        <button type="button"
+                class="bx-sidenav__close"
+                data-bx-sidenav-close
+                aria-label="Close sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+        </button>
+    </div>
+
+    <nav class="bx-sidenav__nav" data-simplebar>
+
+        <ul class="bx-menu bx-menu--level-0" data-bx-menu="root">
+
+            <li class="bx-menu__section">
+                <span class="bx-menu__section-label">Demo</span>
+            </li>
+
+            <li class="bx-menu__item bx-menu__item--leaf #( prc.activeNav ?: '' ) == 'dashboard' ? 'is-active' : ''#" data-bx-menu-item="dashboard">
+                <a class="bx-menu__link" href="/dashboard">
+                    <span class="bx-menu__icon" aria-hidden="true">
+                        <i data-lucide="layout-dashboard"></i>
+                    </span>
+                    <span class="bx-menu__label">Dashboard</span>
+                </a>
+            </li>
+
+            <li class="bx-menu__item bx-menu__item--leaf #( prc.activeNav ?: '' ) == 'chat' ? 'is-active' : ''#" data-bx-menu-item="chat">
+                <a class="bx-menu__link" href="/chat">
+                    <span class="bx-menu__icon" aria-hidden="true">
+                        <i data-lucide="message-square"></i>
+                    </span>
+                    <span class="bx-menu__label">Chat</span>
+                </a>
+            </li>
+
+            <li class="bx-menu__section">
+                <span class="bx-menu__section-label">Developer</span>
+            </li>
+
+            <li class="bx-menu__item bx-menu__item--leaf" data-bx-menu-item="tests">
+                <a class="bx-menu__link" href="/tests/runner.bxm" target="_blank" rel="noopener"
+                   title="Open the TestBox runner in a new window">
+                    <span class="bx-menu__icon" aria-hidden="true">
+                        <i data-lucide="flask-conical"></i>
+                    </span>
+                    <span class="bx-menu__label">Run tests</span>
+                    <span class="bx-menu__icon ms-auto" aria-hidden="true" style="opacity:.6;">
+                        <i data-lucide="external-link" style="width:.75rem;height:.75rem;"></i>
+                    </span>
+                </a>
+            </li>
+
+            <li class="bx-menu__section">
+                <span class="bx-menu__section-label">Resources</span>
+            </li>
+
+            <li class="bx-menu__item bx-menu__item--leaf" data-bx-menu-item="docs-boxlang-ai">
+                <a class="bx-menu__link" href="https://ai.ortusbooks.com/" target="_blank" rel="noopener">
+                    <span class="bx-menu__icon" aria-hidden="true">
+                        <i data-lucide="book-open"></i>
+                    </span>
+                    <span class="bx-menu__label">BoxLang AI Docs</span>
+                </a>
+            </li>
+
+            <li class="bx-menu__item bx-menu__item--leaf" data-bx-menu-item="openrouter">
+                <a class="bx-menu__link" href="https://openrouter.ai/models" target="_blank" rel="noopener">
+                    <span class="bx-menu__icon" aria-hidden="true">
+                        <i data-lucide="route"></i>
+                    </span>
+                    <span class="bx-menu__label">OpenRouter Models</span>
+                </a>
+            </li>
+
+            <li class="bx-menu__item bx-menu__item--leaf" data-bx-menu-item="github-repo">
+                <a class="bx-menu__link" href="https://github.com/mrigsby/bx-AISentinel" target="_blank" rel="noopener">
+                    <span class="bx-menu__icon" aria-hidden="true">
+                        <i data-lucide="github"></i>
+                    </span>
+                    <span class="bx-menu__label">bx-AISentinel Repo</span>
+                    <span class="bx-menu__icon ms-auto" aria-hidden="true" style="opacity:.6;">
+                        <i data-lucide="external-link" style="width:.75rem;height:.75rem;"></i>
+                    </span>
+                </a>
+            </li>
+
+        </ul>
+
+    </nav>
+
+</aside>
+</bx:output>

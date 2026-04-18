@@ -1,0 +1,39 @@
+<bx:output>
+<header class="bx-topbar" id="bx-topbar">
+    <div class="bx-topbar__inner">
+
+        <div class="bx-topbar__start">
+            <button type="button"
+                    class="bx-btn-icon bx-topbar__sidenav-toggle"
+                    data-bx-sidenav-toggle
+                    aria-label="Toggle sidebar"
+                    title="Toggle sidebar">
+                <i data-lucide="menu"></i>
+            </button>
+
+            <a class="bx-topbar__brand" href="/">
+                <img src="/assets/images/brand/bx-ai-icon-full.svg" alt="" width="28" height="28">
+                <span class="bx-topbar__brand-text">bx-AISentinel · Demo</span>
+            </a>
+        </div>
+
+        <div class="bx-topbar__center">
+            <span class="text-muted small d-none d-lg-inline">
+                Model: <code>#( getSystemSetting( "OPENROUTER_MODEL", "openrouter/elephant-alpha" ) )#</code>
+                · Provider: <code>OpenRouter</code>
+            </span>
+        </div>
+
+        <div class="bx-topbar__end">
+            <a href="https://github.com/mrigsby/bx-AISentinel" class="bx-btn-icon d-none d-sm-inline-flex"
+               target="_blank" rel="noopener" aria-label="bx-AISentinel on GitHub" title="bx-AISentinel on GitHub">
+                <i data-lucide="github"></i>
+            </a>
+            <button type="button" class="bx-btn-icon" data-bx-theme-toggle aria-label="Toggle theme" title="Toggle theme">
+                <i data-lucide="sun-moon"></i>
+            </button>
+        </div>
+
+    </div>
+</header>
+</bx:output>

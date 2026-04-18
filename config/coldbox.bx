@@ -1,0 +1,76 @@
+/**
+ * ColdBox configuration for the bx-AISentinel demo.
+ */
+class {
+
+    function configure() {
+        coldbox = {
+            appName               : "bx-AISentinel Demo",
+            eventName             : "event",
+            defaultEvent          : "main.index",
+            requestStartHandler   : "",
+            requestEndHandler     : "",
+            applicationStartHandler : "main.onAppStart",
+            handlerCaching        : false,
+            eventCaching          : false,
+            handlersIndexAutoReload : true,
+            reinitPassword        : "",
+            reinitKey             : "fwreinit",
+            customErrorTemplate   : "/coldbox/system/includes/BugReport.cfm"
+        };
+
+        // Environments
+        environments = {
+            development : "localhost,127\.0\.0\.1"
+        };
+
+        // Module settings
+        moduleSettings = {
+            "bx-aisentinel" : {
+                // Host-level overrides for the Sentinel middleware — policy layer 2.
+                "manifestScope"    : "conversation",
+                "metricsEnabled"   : true,
+                "auditEnabled"     : true
+            }
+        };
+
+        // CBWire
+        cbwire = {
+            enableTelemetry : false
+        };
+
+        // Module auto-loading
+        modules = {
+            autoReload : false
+        };
+
+        // Interceptor settings
+        interceptorSettings = { customInterceptionPoints : "" };
+        interceptors        = [];
+
+        // LogBox
+        logBox = {
+            appenders : {
+                files : {
+                    class        : "coldbox.system.logging.appenders.RollingFileAppender",
+                    properties   : {
+                        filename : "bx-aisentinel-demo",
+                        filePath : "/app/logs"
+                    }
+                }
+            },
+            root       : { levelmax : "INFO", appenders : "*" },
+            categories : {
+                "bx-aisentinel" : { levelMax : "DEBUG" }
+            }
+        };
+    }
+
+    function development() {
+        coldbox.handlerCaching          = false;
+        coldbox.eventCaching            = false;
+        coldbox.handlersIndexAutoReload = true;
+        coldbox.customErrorTemplate     = "";
+    }
+
+}

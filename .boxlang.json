@@ -1,0 +1,14 @@
+{
+    "modules": {
+        "bxai": {
+            "settings": {
+                "provider": "openrouter",
+                "apiKey": "${OPENROUTER_API_KEY}",
+                "defaultParams": {
+                    "model": "openrouter/elephant-alpha"
+                },
+                "timeout": 60
+            }
+        }
+    }
+}

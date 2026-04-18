@@ -1,0 +1,223 @@
+/**
+ * ChatWire — the reactive chat component.
+ *
+ * Delegates agent construction to `AgentFactory` to sidestep cbwire's
+ * `onMissingMethod` handler, which otherwise swallows bx-ai BIF calls
+ * (aiAgent / aiModel / aiMemory) and reports them as "method does not exist".
+ * See models/AgentFactory.bx for the rationale.
+ *
+ * Each `send()` invocation:
+ *   1. Runs `agent.run( userInput )` which fires the Sentinel middleware chain
+ *   2. Reads last-run metrics (timings, categories) from the middleware
+ *   3. Pushes the reply + metrics onto the conversation transcript
+ *   4. Records session-level totals on SessionMetrics
+ *
+ * The Sentinel on/off toggle calls `middleware.setEnabled()` — no agent
+ * rebuild needed because the middleware short-circuits when disabled.
+ */
+class extends="cbwire.models.Component" {
+
+    property name="sessionMetrics" inject="SessionMetrics";
+    property name="agentFactory"   inject="AgentFactory";
+    property name="seededPrompts"  inject="SeededPrompts";
+
+    // ─── Wire data (persists across hydrations) ──────────────────────────
+    data = {
+        "messages"           : [],            // [{ role, content, tokens?, metrics?, at }]
+        "draft"              : "",            // textarea value
+        "sentinelEnabled"    : true,
+        "explainTokensToLLM" : true,          // "LLM token coaching: ON/OFF"
+        "showInspector"      : true,
+        "showRawPayloads"    : false,
+        "lastRunMetrics"     : {},
+        "lastRawPrompt"      : "",           // what the user typed
+        "lastTokenizedPrompt": "",           // what the LLM saw (for inspector)
+        "lastRawResponse"    : "",           // what the LLM returned (tokenized)
+        "lastRestoredReply"  : "",           // what the user sees (plaintext)
+        "isThinking"         : false,
+        "errorMessage"       : ""
+    };
+
+    computed = {
+        "hasMessages" : "computeHasMessages",
+        "badgeColor"  : "computeBadgeColor"
+    };
+
+    listeners = {
+        "prompt:seed"     : "onPromptSeed",     // seeded-prompts partial fires this
+        "sentinel:toggle" : "onSentinelToggle"
+    };
+
+    // ─── Lifecycle ───────────────────────────────────────────────────────
+
+    function onMount() {
+        // Nothing to do here anymore — the agent is rebuilt per-send in send()
+        // because CBWire rehydrates `variables` across AJAX requests and
+        // anything assigned to variables.xxx in onMount wouldn't survive.
+        // Conversation continuity lives in aiMemory, keyed by the wire ID.
+        return this;
+    }
+
+    // ─── Actions ─────────────────────────────────────────────────────────
+
+    function send() {
+        if ( !len( trim( data.draft ) ) ) return;
+        if ( data.isThinking ) return;
+
+        data.isThinking    = true;
+        data.errorMessage  = "";
+        data.lastRawPrompt = data.draft;
+
+        var userTurn = {
+            "role"    : "user",
+            "content" : data.draft,
+            "at"      : now()
+        };
+        data.messages.append( userTurn );
+
+        try {
+            // Rebuild each send so we don't depend on non-data state persistence.
+            // aiMemory keyed by our wire ID keeps conversation history coherent.
+            var built = variables.agentFactory.buildChatAgent(
+                sentinelEnabled    : data.sentinelEnabled,
+                manifestScope      : "conversation",
+                conversationId     : _getID(),
+                explainTokensToLLM : data.explainTokensToLLM
+            );
+
+            var reply = built.agent.run( data.draft );
+
+            var metrics = built.sentinel.getLastRunMetrics();
+
+            data.lastRunMetrics    = metrics;
+            data.lastRestoredReply = reply;
+
+            // Render the full tokenized wire payload + raw LLM response for the inspector
+            data.lastTokenizedPrompt = _formatMessagesForInspector(
+                metrics.lastTokenizedMessages ?: []
+            );
+            data.lastRawResponse = _stringifyResponse(
+                metrics.lastRawResponse ?: ""
+            );
+
+            data.messages.append( {
+                "role"    : "assistant",
+                "content" : reply,
+                "metrics" : metrics,
+                "at"      : now()
+            } );
+
+            // Record to session totals when Sentinel was active
+            if ( data.sentinelEnabled ) {
+                variables.sessionMetrics.record( _sessionId(), metrics );
+            }
+        } catch ( any e ) {
+            data.errorMessage = "Error calling LLM: " & e.message;
+            data.messages.append( {
+                "role"    : "assistant",
+                "content" : "[error] " & e.message,
+                "at"      : now()
+            } );
+        } finally {
+            data.draft      = "";
+            data.isThinking = false;
+        }
+    }
+
+    function clearConversation() {
+        data.messages     = [];
+        data.lastRawPrompt = "";
+        data.lastTokenizedPrompt = "";
+        data.lastRawResponse     = "";
+        data.lastRestoredReply   = "";
+        data.lastRunMetrics      = {};
+    }
+
+    function onPromptSeed( required numeric seedIndex ) {
+        data.draft = variables.seededPrompts.getByIndex( arguments.seedIndex ).body;
+    }
+
+    function onSentinelToggle() {
+        // Just flip the flag — the next send() rebuilds the agent with the
+        // new `sentinelEnabled` value passed into AgentFactory.
+        data.sentinelEnabled = !data.sentinelEnabled;
+    }
+
+    function onExplainTokensToggle() {
+        data.explainTokensToLLM = !data.explainTokensToLLM;
+    }
+
+    function toggleInspector() {
+        data.showInspector = !data.showInspector;
+    }
+
+    // ─── Computed ────────────────────────────────────────────────────────
+
+    function computeHasMessages() {
+        return data.messages.len() > 0;
+    }
+
+    function computeBadgeColor() {
+        var m = data.lastRunMetrics;
+        var total = ( m.outboundMs ?: 0 ) + ( m.inboundMs ?: 0 );
+        if ( total < 10 ) return "success"; // green
+        if ( total < 50 ) return "warning"; // amber
+        return "danger";                    // red
+    }
+
+    // ─── Internals ───────────────────────────────────────────────────────
+
+    private string function _sessionId() {
+        try {
+            return session.urltoken ?: session.sessionId ?: "default";
+        } catch ( any e ) {
+            return "default";
+        }
+    }
+
+    /**
+     * Render the full outbound message array the LLM actually sees, with role
+     * dividers. Includes system messages (including any bx-AISentinel token
+     * coaching that was injected), memory-carried turns, and the current user
+     * message — all in post-redaction / tokenized form.
+     */
+    private string function _formatMessagesForInspector( required array messages ) {
+        if ( arrayLen( arguments.messages ) == 0 ) {
+            return "(no messages captured)";
+        }
+
+        var blocks = [];
+        for ( var m in arguments.messages ) {
+            if ( !isStruct( m ) ) continue;
+            var role = m.role ?: "unknown";
+            var content = isSimpleValue( m.content ?: "" ) ? m.content : "(non-string content)";
+            blocks.append( "[" & uCase( role ) & "]" & char( 10 ) & content );
+        }
+        return blocks.toList( char( 10 ) & char( 10 ) );
+    }
+
+    /**
+     * Flatten whatever shape the LLM returned (string, OpenAI struct, etc.)
+     * into a readable text blob for the inspector.
+     */
+    private string function _stringifyResponse( required any response ) {
+        if ( isSimpleValue( arguments.response ) ) return arguments.response;
+        if ( isStruct( arguments.response ) ) {
+            // OpenAI-shape
+            if ( structKeyExists( arguments.response, "choices" ) && isArray( arguments.response.choices )
+                 && arrayLen( arguments.response.choices ) > 0 ) {
+                var first = arguments.response.choices[ 1 ];
+                if ( isStruct( first ) && structKeyExists( first, "message" )
+                     && isStruct( first.message ) && structKeyExists( first.message, "content" ) ) {
+                    return first.message.content;
+                }
+            }
+            if ( structKeyExists( arguments.response, "content" ) && isSimpleValue( arguments.response.content ) ) {
+                return arguments.response.content;
+            }
+            try { return jsonSerialize( arguments.response ); } catch ( any e ) { return "(response struct)"; }
+        }
+        return "(non-text response)";
+    }
+
+}

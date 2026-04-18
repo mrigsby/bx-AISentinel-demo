@@ -1,0 +1,24 @@
+<bx:output>
+<bx:script>
+    seedPrompts = getInstance( "SeededPrompts" ).getAll();
+</bx:script>
+
+<div class="mb-3">
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <i data-lucide="sparkles" style="width:1rem;height:1rem;" aria-hidden="true"></i>
+        <span class="small fw-semibold">Try a seeded prompt</span>
+        <span class="small text-muted">— one click loads a realistic, secret-laden example into the input. Send it to see Sentinel at work.</span>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <bx:loop array="#seedPrompts#" index="i" item="seed">
+            <button type="button"
+                    class="btn btn-sm btn-outline-secondary bx-sentinel-seed-btn"
+                    wire:click="onPromptSeed(#i#)"
+                    title="Load this prompt into the input">
+                <i data-lucide="sparkles" style="width:.875rem;height:.875rem;"></i>
+                #seed.label#
+            </button>
+        </bx:loop>
+    </div>
+</div>
+</bx:output>

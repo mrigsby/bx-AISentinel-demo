@@ -1,0 +1,40 @@
+/**
+ * DashboardWire — live session-scoped Sentinel metrics.
+ *
+ * The template self-polls every 3 seconds via `wire:poll.3s` on the root.
+ * Each poll fires a lightweight AJAX request that re-reads SessionMetrics
+ * (in-process, no DB), so the UI reflects new runs without a page reload.
+ *
+ * Session identification matches ChatWire — `session.urltoken` / fallback —
+ * so records written from the chat page show up here without keying changes.
+ */
+class extends="cbwire.models.Component" {
+
+    property name="sessionMetrics" inject="SessionMetrics";
+
+    data = {
+        "summary" : {}
+    };
+
+    function onMount() {
+        data.summary = variables.sessionMetrics.getSummary( _sessionId() );
+        return this;
+    }
+
+    /**
+     * Called on every poll tick. Refreshes data.summary from the
+     * singleton SessionMetrics model.
+     */
+    function refresh() {
+        data.summary = variables.sessionMetrics.getSummary( _sessionId() );
+    }
+
+    private string function _sessionId() {
+        try {
+            return session.urltoken ?: session.sessionId ?: "default";
+        } catch ( any e ) {
+            return "default";
+        }
+    }
+
+}

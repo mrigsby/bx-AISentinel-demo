@@ -1,0 +1,61 @@
+/**
+ * AgentFactorySpec — verifies the factory returns the expected shape and
+ * wires the Sentinel middleware with the toggle values passed in.
+ *
+ * Does NOT call agent.run() — that would hit OpenRouter. The goal is to
+ * confirm composition, not network round-trip.
+ */
+class extends="testbox.system.BaseSpec" {
+
+    function run() {
+
+        describe( "AgentFactory.buildChatAgent()", () => {
+
+            it( "returns a struct with both `agent` and `sentinel` keys", () => {
+                var built = _make().buildChatAgent(
+                    sentinelEnabled    : true,
+                    manifestScope      : "conversation",
+                    conversationId     : "unit-test",
+                    explainTokensToLLM : true
+                );
+                expect( built ).toHaveKey( "agent"    );
+                expect( built ).toHaveKey( "sentinel" );
+                expect( built.agent    ).notToBeNull();
+                expect( built.sentinel ).notToBeNull();
+            } );
+
+            it( "returns an AiSentinelMiddleware instance with the expected toggle API", () => {
+                var built = _make().buildChatAgent( sentinelEnabled: true, explainTokensToLLM: true );
+                expect( isObject( built.sentinel ) ).toBeTrue();
+                expect( built.sentinel ).toHaveKey( "setEnabled" );
+                expect( built.sentinel ).toHaveKey( "isEnabled" );
+                expect( built.sentinel ).toHaveKey( "setExplainTokensToLLM" );
+                expect( built.sentinel ).toHaveKey( "isExplainTokensToLLMEnabled" );
+                expect( built.sentinel ).toHaveKey( "getLastRunMetrics" );
+            } );
+
+            it( "honors the sentinelEnabled flag at construction time", () => {
+                var f     = _make();
+                var armed  = f.buildChatAgent( sentinelEnabled: true  ).sentinel;
+                var disarm = f.buildChatAgent( sentinelEnabled: false ).sentinel;
+                expect( armed.isEnabled()  ).toBeTrue();
+                expect( disarm.isEnabled() ).toBeFalse();
+            } );
+
+            it( "honors the explainTokensToLLM flag at construction time", () => {
+                var f   = _make();
+                var on  = f.buildChatAgent( explainTokensToLLM: true  ).sentinel;
+                var off = f.buildChatAgent( explainTokensToLLM: false ).sentinel;
+                expect( on.isExplainTokensToLLMEnabled()  ).toBeTrue();
+                expect( off.isExplainTokensToLLMEnabled() ).toBeFalse();
+            } );
+
+        } );
+
+    }
+
+    private any function _make() {
+        return new models.AgentFactory();
+    }
+
+}
