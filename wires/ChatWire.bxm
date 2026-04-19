@@ -201,6 +201,7 @@
                                   placeholder="Ask something — paste secrets freely, Sentinel will handle it. (Enter sends · Shift+Enter for a new line)"
                                   wire:model="draft"
                                   onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.form.requestSubmit();}"
+                                  oninput="this.form.querySelector('button[type=submit]').disabled = !this.value.trim().length;"
                                   wire:loading.attr="disabled" wire:target="send"></textarea>
                         <button type="submit"
                                 class="btn btn-primary"
