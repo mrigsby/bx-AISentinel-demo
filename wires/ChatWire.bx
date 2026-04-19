@@ -193,8 +193,12 @@ class extends="cbwire.models.Component" {
     private struct function _computeTier1Status( required struct report ) {
         var detectors = arguments.report.detectors ?: [];
         for ( var d in detectors ) {
-            if ( findNoCase( "bx-AISentinel-ONNX", d.name ) > 0
-                 || findNoCase( "OnnxNerDetector", d.name ) > 0 ) {
+            // Match either the canonical WireBox ID (`OnnxNerDetector@bxAISentinelONNX`)
+            // or the legacy dashed module name (in case someone wired the old form).
+            // `OnnxNerDetector` alone catches fully-qualified class-path forms too.
+            if ( findNoCase( "bxAISentinelONNX",   d.name ) > 0
+                 || findNoCase( "bx-AISentinel-ONNX", d.name ) > 0
+                 || findNoCase( "OnnxNerDetector",    d.name ) > 0 ) {
                 return {
                     "state"  : d.status ?: "unknown",
                     "name"   : d.name   ?: "",

@@ -76,7 +76,7 @@ curl -L -o assets/piiranha-pii-v1/tokenizer.json \
     "modules": {
         "bx-aisentinel": {
             "externalDetectors": [
-                "OnnxNerDetector@bx-AISentinel-ONNX"
+                "OnnxNerDetector@bxAISentinelONNX"
             ]
         },
         "bx-aisentinel-onnx": {
