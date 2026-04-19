@@ -24,9 +24,12 @@
             <li><strong>Dates of birth</strong> in prose ("born March 14, 1982")</li>
             <li><strong>Medical record numbers</strong>, institutional IDs, and other context-dependent PII that looks like ordinary text</li>
         </ul>
-        <p class="mb-0 small text-muted">
-            Installing <a href="https://github.com/mrigsby/bx-AISentinel-ONNX" target="_blank" rel="noopener"><code>bx-AISentinel-ONNX</code></a> plugs an ONNX Runtime + GLiNER / Piiranha model into the sentinel's external-detector slot. The detector handles the contextual category and works alongside the existing tiers — no replacement, just additive coverage.
+        <p class="mb-2 small text-muted">
+            Installing <a href="https://github.com/mrigsby/bx-AISentinel-ONNX" target="_blank" rel="noopener"><code>bx-AISentinel-ONNX</code></a> plugs an ONNX Runtime + Piiranha model into the sentinel's external-detector slot. The detector handles the contextual category and works alongside the existing tiers — no replacement, just additive coverage.
         </p>
+        <div class="alert alert-info small mb-0 py-2">
+            <strong>v0.4.0-pre note:</strong> Piiranha is the recommended Tier 1 model today — fully verified end-to-end. Piiranha catches DOB / addresses / phones / SSNs / credit cards reliably, but <strong>under-detects English names</strong> (a model behavior, not a code bug). GLiNER is registered but not yet functional (its span-prediction output needs a decoder still under development). Use Piiranha for now.
+        </div>
     </div>
 </section>
 
@@ -42,27 +45,29 @@
                 </p>
             </li>
             <li class="mb-3">
-                <strong>Place the ONNX Runtime + tokenizer JARs</strong> into the module's <code>lib/</code> directory via direct download from Maven Central:
+                <strong>Place THREE JARs</strong> into the module's <code>lib/</code> directory via direct download from Maven Central:
                 <pre class="bg-body-secondary rounded p-2 mb-0 mt-2"><code>cd modules_app/bx-AISentinel-ONNX/
 mkdir -p lib
 curl -L -o lib/onnxruntime-1.22.0.jar \
   https://repo1.maven.org/maven2/com/microsoft/onnxruntime/onnxruntime/1.22.0/onnxruntime-1.22.0.jar
 curl -L -o lib/tokenizers-0.36.0.jar \
-  https://repo1.maven.org/maven2/ai/djl/huggingface/tokenizers/0.36.0/tokenizers-0.36.0.jar</code></pre>
+  https://repo1.maven.org/maven2/ai/djl/huggingface/tokenizers/0.36.0/tokenizers-0.36.0.jar
+curl -L -o lib/api-0.36.0.jar \
+  https://repo1.maven.org/maven2/ai/djl/api/0.36.0/api-0.36.0.jar</code></pre>
                 <p class="small text-muted mt-1 mb-0">
-                    Single monolithic JARs that bundle native libraries for every platform. Together ~40 MB. Swap in newer versions from <a href="https://central.sonatype.com/artifact/com.microsoft.onnxruntime/onnxruntime" target="_blank" rel="noopener">Maven Central</a> if available.
+                    Three JARs together ~50 MB. The <code>api</code> JAR is a transitive dependency of <code>tokenizers</code> — without it the JVM fails with <code>NoClassDefFoundError: ai/djl/modality/nlp/preprocess/Tokenizer</code> on first scan. Keep <code>api</code> and <code>tokenizers</code> versions in sync. Swap in newer versions from <a href="https://central.sonatype.com/artifact/com.microsoft.onnxruntime/onnxruntime" target="_blank" rel="noopener">Maven Central</a> if available.
                 </p>
             </li>
             <li class="mb-3">
-                <strong>Download the model</strong> directly from HuggingFace into the module's default <code>assets/</code> directory:
+                <strong>Download the Piiranha model</strong> directly from HuggingFace into a model-named subdirectory under <code>assets/</code>:
                 <pre class="bg-body-secondary rounded p-2 mb-0 mt-2"><code>cd modules_app/bx-AISentinel-ONNX/
-mkdir -p assets
-curl -L -o assets/model.onnx \
-  https://huggingface.co/onnx-community/gliner_multi_pii-v1/resolve/main/onnx/model.onnx
-curl -L -o assets/tokenizer.json \
-  https://huggingface.co/onnx-community/gliner_multi_pii-v1/resolve/main/tokenizer.json</code></pre>
+mkdir -p assets/piiranha-pii-v1
+curl -L -o assets/piiranha-pii-v1/model.onnx \
+  https://huggingface.co/onnx-community/piiranha-v1-detect-personal-information-ONNX/resolve/main/onnx/model.onnx
+curl -L -o assets/piiranha-pii-v1/tokenizer.json \
+  https://huggingface.co/iiiorg/piiranha-v1-detect-personal-information/resolve/main/tokenizer.json</code></pre>
                 <p class="small text-muted mt-1 mb-0">
-                    Alternatively, set <code>assetMode: "auto-download"</code> + <code>acceptUnverified: true</code> in module settings (Step 4) and the detector will fetch the files on its first <code>scan()</code> call — trades explicit control for zero manual work.
+                    Model file ~280 MB; tokenizer ~16 MB. Alternatively, set <code>assetMode: "auto-download"</code> + <code>acceptUnverified: true</code> + <code>acceptUnverifiedLicense: true</code> in Step 4's settings and the detector will fetch the files on its first <code>scan()</code> call. Both <code>accept*</code> flags are required because Piiranha's checksum isn't pinned and the original repo's license isn't publicly documented (manual mode bypasses both gates).
                 </p>
             </li>
             <li class="mb-3">
@@ -75,14 +80,15 @@ curl -L -o assets/tokenizer.json \
             ]
         },
         "bx-aisentinel-onnx": {
-            "modelName" : "gliner-pii-v1",
-            "modelPath" : "~/.bx-aisentinel/models/gliner-pii-v1/",
-            "assetMode" : "manual"
+            "modelName" : "piiranha-pii-v1",
+            "modelPath" : "./modules_app/bx-AISentinel-ONNX/assets/piiranha-pii-v1/",
+            "assetMode" : "manual",
+            "eagerInit" : true
         }
     }
 }</code></pre>
                 <p class="small text-muted mt-1 mb-0">
-                    Point <code>modelPath</code> at a host-level directory so the weights survive <code>box install</code> reinstalls.
+                    <code>modelPath</code> points at the directory you downloaded into in Step 3. <code>eagerInit: true</code> loads the ONNX session at module boot (~5s cold-start) so the first chat turn doesn't absorb that latency. For production, point <code>modelPath</code> at a host-level directory like <code>~/.bx-aisentinel/models/piiranha-pii-v1/</code> so the weights survive <code>box install</code> reinstalls of the module.
                 </p>
             </li>
             <li class="mb-0">
@@ -95,9 +101,9 @@ curl -L -o assets/tokenizer.json \
 <section class="card mb-4">
     <div class="card-body">
         <h2 class="h5">Verify it's working</h2>
-        <ol class="mb-0">
+        <ol class="mb-3">
             <li class="mb-2">
-                Send a chat message containing a free-form name or address. Something like:
+                Send a chat message containing a free-form date of birth or address. Something like:
                 <blockquote class="border-start border-3 ps-3 mt-2 mb-2 small">
                     <em>Alice Martinez, born 1982-03-14, lives at 742 Evergreen Terrace. Look up her account.</em>
                 </blockquote>
@@ -106,9 +112,12 @@ curl -L -o assets/tokenizer.json \
                 Open the <a href="/dashboard">Dashboard</a>. A new <code>pii-ner</code> category card will appear in the breakdown once the detector fires its first hit.
             </li>
             <li class="mb-0">
-                Open the <strong>Inspector</strong> panel in the chat. The outbound payload will show <code>⟦SECRET:PII_PERSON_NAME:…⟧</code>-style tokens where the plaintext was.
+                Open the <strong>Inspector</strong> panel in the chat. The outbound payload will show <code>⟦SECRET:PII_DOB:…⟧</code> for "1982-03-14" and <code>⟦SECRET:PII_ADDRESS:…⟧</code> for "742" + "Evergreen Terrace".
             </li>
         </ol>
+        <div class="alert alert-warning small mb-0 py-2">
+            <strong>What Piiranha does NOT catch in this prompt:</strong> the name "Alice Martinez" stays plaintext (Piiranha under-detects English names — confirmed across multiple sentences in v0.4.0 testing). MRN-style identifiers are also not in Piiranha's label schema. Both gaps are documented model behaviors, not code bugs. A future GLiNER sibling backend would close them.
+        </div>
     </div>
 </section>
 
@@ -125,20 +134,24 @@ curl -L -o assets/tokenizer.json \
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Chat redacts AWS keys and emails but not names / addresses.</td>
+                        <td>Chat redacts AWS keys and emails but not addresses / DOB.</td>
                         <td>Tier 1 detector isn't installed or didn't load. Check the chat page's "Tier 1 NER" status indicator and the <code>bx-aisentinel-onnx</code> log file.</td>
                     </tr>
                     <tr>
-                        <td><code>UnverifiedModel</code> error during download.</td>
-                        <td>Registry entry doesn't have a pinned SHA-256. Pass <code>acceptUnverified=true</code> after you've decided you trust the source, or switch to <code>manual</code> mode.</td>
+                        <td><code>NoClassDefFoundError: ai/djl/modality/nlp/preprocess/Tokenizer</code> in the log.</td>
+                        <td>Missing the <code>api-*.jar</code> in <code>lib/</code>. The <code>tokenizers</code> JAR depends on it. Re-do Step 2 — all THREE JARs need to be present.</td>
                     </tr>
                     <tr>
-                        <td><code>scan()</code> returns empty.</td>
-                        <td>Call <code>detector.validateAssets()</code> from a BoxLang console. Look for <code>missingFiles</code> or <code>checksumIssues</code>.</td>
+                        <td><code>UnverifiedModel</code> or <code>UnverifiedLicense</code> error during download.</td>
+                        <td>Registry entry doesn't have a pinned SHA-256, or the model's license hasn't been vetted. Pass <code>acceptUnverified: true</code> and <code>acceptUnverifiedLicense: true</code> after you've decided you trust the source, or switch to <code>manual</code> mode (download files yourself via curl — bypasses both gates).</td>
+                    </tr>
+                    <tr>
+                        <td><code>scan()</code> returns empty / no <code>pii-ner</code> hits.</td>
+                        <td>Call <code>detector.validateAssets()</code>. Check <code>ok</code> (assets ready), <code>sessionLoaded</code> (model actually loaded), and <code>lastScanError</code> (last caught exception). Also call <code>detector.getLastScanError()</code> directly. Asset issues surface as <code>assetManager.missingFiles</code> / <code>checksumIssues</code>.</td>
                     </tr>
                     <tr>
                         <td>Dashboard never shows a <code>pii-ner</code> category card.</td>
-                        <td>The detector hasn't fired yet — send a prompt with free-form PII (name / address / DOB), not just formatted secrets.</td>
+                        <td>Either the detector hasn't fired yet (send a prompt with free-form PII Piiranha catches — DOB, address, phone, SSN, credit card), OR all your test prompts contained only entities Piiranha doesn't catch (English names, MRN-style IDs).</td>
                     </tr>
                 </tbody>
             </table>
@@ -150,9 +163,10 @@ curl -L -o assets/tokenizer.json \
     <div class="card-body">
         <h2 class="h5">References</h2>
         <ul class="mb-0">
-            <li><a href="https://github.com/mrigsby/bx-AISentinel-ONNX##readme" target="_blank" rel="noopener">bx-AISentinel-ONNX README</a> — full install + settings reference, including the three <code>assetMode</code> options and the <code>download-model</code> task.</li>
+            <li><a href="https://github.com/mrigsby/bx-AISentinel-ONNX##readme" target="_blank" rel="noopener">bx-AISentinel-ONNX README</a> — full install + settings reference, including the three <code>assetMode</code> options.</li>
             <li><a href="https://github.com/mrigsby/bx-AISentinel/blob/main/models/detectors/CONTRACT.md" target="_blank" rel="noopener">IDetector@1.0.0 contract</a> — the plugin interface the ONNX module implements.</li>
-            <li><a href="https://huggingface.co/urchade/gliner_multi_pii-v1" target="_blank" rel="noopener">GLiNER multi-PII v1 model card</a> — the default model.</li>
+            <li><a href="https://huggingface.co/iiiorg/piiranha-v1-detect-personal-information" target="_blank" rel="noopener">Piiranha v1 model card</a> — the recommended Tier 1 model. 18-class IO-tagging token classifier fine-tuned on mdeberta-v3.</li>
+            <li><a href="https://huggingface.co/urchade/gliner_multi_pii-v1" target="_blank" rel="noopener">GLiNER multi-PII v1 model card</a> — registered alternative; not yet functional (span-decoder pending).</li>
         </ul>
     </div>
 </section>
